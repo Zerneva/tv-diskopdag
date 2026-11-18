@@ -31,6 +31,14 @@ const imagePreviewThumb = document.getElementById('image-preview-thumb');
 const imagePreviewInfo = document.getElementById('image-preview-info');
 const dropzoneImage = document.getElementById('dropzone-image');
 
+// Wrapper Upload Video
+const wrapperFileVideo = document.getElementById('wrapper-file-video');
+const inputFileVideo = document.getElementById('input-file-video');
+const videoPreviewBox = document.getElementById('video-preview-box');
+const videoPreviewInfo = document.getElementById('video-preview-info');
+const videoPreviewPlayer = document.getElementById('video-preview-player');
+const dropzoneVideo = document.getElementById('dropzone-video');
+
 const wrapperFileExcel = document.getElementById('wrapper-file-excel');
 const inputFileExcel = document.getElementById('input-file-excel');
 const excelSummaryBox = document.getElementById('excel-summary-box');
@@ -71,6 +79,11 @@ const editInputEndDate = document.getElementById('edit-input-end-date');
 const editWrapperImage = document.getElementById('edit-wrapper-image');
 const editInputFileImage = document.getElementById('edit-input-file-image');
 const editImageCurrentThumb = document.getElementById('edit-image-current-thumb');
+
+// Edit Modal Video Elements
+const editWrapperVideo = document.getElementById('edit-wrapper-video');
+const editVideoCurrentPlayer = document.getElementById('edit-video-current-player');
+const editInputFileVideo = document.getElementById('edit-input-file-video');
 const editWrapperExcel = document.getElementById('edit-wrapper-excel');
 const editInputFileExcel = document.getElementById('edit-input-file-excel');
 const editExcelInfoStats = document.getElementById('edit-excel-info-stats');
@@ -357,9 +370,15 @@ function updateTypeVisibility() {
   const type = inputType.value;
   if (type === 'image') {
     wrapperFileImage.classList.remove('hidden');
+    if (wrapperFileVideo) wrapperFileVideo.classList.add('hidden');
+    wrapperFileExcel.classList.add('hidden');
+  } else if (type === 'video') {
+    wrapperFileImage.classList.add('hidden');
+    if (wrapperFileVideo) wrapperFileVideo.classList.remove('hidden');
     wrapperFileExcel.classList.add('hidden');
   } else {
     wrapperFileImage.classList.add('hidden');
+    if (wrapperFileVideo) wrapperFileVideo.classList.add('hidden');
     wrapperFileExcel.classList.remove('hidden');
   }
 }
@@ -395,7 +414,39 @@ function setupDragAndDrop(dropzone, inputElement) {
   });
 }
 setupDragAndDrop(dropzoneImage, inputFileImage);
+setupDragAndDrop(dropzoneVideo, inputFileVideo);
 setupDragAndDrop(dropzoneExcel, inputFileExcel);
+
+// Preview Video & Auto-detect Durasi
+if (inputFileVideo) {
+  inputFileVideo.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      if (videoPreviewBox) videoPreviewBox.classList.add('hidden');
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      showToast('Perhatian: Ukuran file video lebih dari 50MB. Disarankan mengompres video agar pemutaran di TV lancar.', 'warning');
+    }
+
+    const videoBlobUrl = URL.createObjectURL(file);
+    if (videoPreviewPlayer) {
+      videoPreviewPlayer.src = videoBlobUrl;
+      videoPreviewPlayer.onloadedmetadata = () => {
+        const seconds = Math.round(videoPreviewPlayer.duration);
+        if (seconds > 0 && inputDuration) {
+          inputDuration.value = Math.min(180, Math.max(5, seconds));
+          showToast(`Durasi video terdeteksi otomatis: ${seconds} detik`, 'info');
+        }
+      };
+    }
+    if (videoPreviewInfo) {
+      videoPreviewInfo.textContent = `${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`;
+    }
+    if (videoPreviewBox) videoPreviewBox.classList.remove('hidden');
+  });
+}
 
 // Preview Thumbnail Gambar
 inputFileImage.addEventListener('change', (e) => {
@@ -937,7 +988,49 @@ contentForm.addEventListener('submit', async (e) => {
       } else {
         image_url = await compressImageToDataUrl(file);
       }
+    }
+
+    // Jika user mengunggah video baru
+    if (slide.type === 'video' && editInputFileVideo && editInputFileVideo.files[0]) {
+      const file = editInputFileVideo.files[0];
+      if (isSupabaseConfigured() && supabaseClient && !isDemoSession) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `vid-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const { error: uploadErr } = await supabaseClient.storage
+          .from('tv-media')
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
+        if (uploadErr) throw uploadErr;
+
+        const { data: publicUrlData } = supabaseClient.storage
+          .from('tv-media')
+          .getPublicUrl(fileName);
+        image_url = publicUrlData.publicUrl;
+      } else {
+        throw new Error('Mengganti video memerlukan koneksi Supabase Live.');
+      }
     } 
+    else if (type === 'video') {
+      const file = inputFileVideo ? inputFileVideo.files[0] : null;
+      if (!file) throw new Error('Silakan pilih file video MP4/WEBM terlebih dahulu');
+
+      if (isSupabaseConfigured() && supabaseClient && !isDemoSession) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `vid-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+        const { error: uploadErr } = await supabaseClient.storage
+          .from('tv-media')
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+        if (uploadErr) throw uploadErr;
+
+        const { data: publicUrlData } = supabaseClient.storage
+          .from('tv-media')
+          .getPublicUrl(fileName);
+        image_url = publicUrlData.publicUrl;
+      } else {
+        throw new Error('Upload video membutuhkan koneksi Supabase Live karena kapasitas memori browser lokal tidak mencukupi untuk video.');
+      }
+    }
     else {
       if (!parsedExcelBuffer) {
         const file = inputFileExcel.files[0];
@@ -1007,6 +1100,9 @@ contentForm.addEventListener('submit', async (e) => {
     inputEndDate.value = nextMonthStr;
     inputDuration.value = 15;
     imagePreviewBox.classList.add('hidden');
+    if (videoPreviewBox) videoPreviewBox.classList.add('hidden');
+    if (videoPreviewPlayer) videoPreviewPlayer.src = '';
+    if (inputFileVideo) inputFileVideo.value = '';
     excelSummaryBox.classList.add('hidden');
     if (excelBgPreviewBox) excelBgPreviewBox.classList.add('hidden');
     if (inputExcelBgFile) inputExcelBgFile.value = '';
@@ -1087,6 +1183,7 @@ async function loadAdminSlides() {
     if (currentSlideFilter === 'pinned') return slide.is_pinned;
     if (currentSlideFilter === 'excel') return slide.type === 'excel';
     if (currentSlideFilter === 'image') return slide.type === 'image';
+    if (currentSlideFilter === 'video') return slide.type === 'video';
     return true;
   });
 
@@ -1105,9 +1202,14 @@ async function loadAdminSlides() {
     const safeAuthor = escapeHtml(slide.author_email || '-');
     const safeImageUrl = slide.image_url ? encodeURI(slide.image_url) : '';
 
-    const typeBadge = slide.type === 'excel'
-      ? `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-lg flex items-center gap-1">📊 EXCEL (${slide.excel_data?.rows?.length || 0} baris)</span>`
-      : `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 rounded-lg flex items-center gap-1">🖼️ GAMBAR</span>`;
+    let typeBadge = '';
+    if (slide.type === 'excel') {
+      typeBadge = `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-lg flex items-center gap-1">📊 EXCEL (${slide.excel_data?.rows?.length || 0} baris)</span>`;
+    } else if (slide.type === 'video') {
+      typeBadge = `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 rounded-lg flex items-center gap-1">🎬 VIDEO</span>`;
+    } else {
+      typeBadge = `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 rounded-lg flex items-center gap-1">🖼️ GAMBAR</span>`;
+    }
 
     let statusBadge = '';
     if (slide.is_pinned) {
@@ -1139,10 +1241,12 @@ async function loadAdminSlides() {
         <!-- Informasi Kiri -->
         <div class="flex items-start gap-4 min-w-[260px] flex-1">
           <!-- Thumbnail Kecil -->
-          <div class="w-16 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xs">
+          <div class="w-16 h-12 rounded-xl bg-slate-900 border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xs">
             ${slide.type === 'image' && safeImageUrl 
               ? `<img src="${safeImageUrl}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1594322436404-5a0526db4d13?auto=format&fit=crop&w=1200&q=80'" />` 
-              : `<span class="text-xl">📊</span>`}
+              : (slide.type === 'video' 
+                  ? `<div class="w-full h-full bg-purple-950 flex items-center justify-center text-purple-300 font-bold text-lg">🎬</div>` 
+                  : `<span class="text-xl">📊</span>`)}
           </div>
 
           <div class="space-y-1">
@@ -1390,6 +1494,13 @@ btnPreviewModalTrigger.addEventListener('click', () => {
     } else {
       renderModalPreviewImage('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80');
     }
+  } else if (type === 'video') {
+    const file = inputFileVideo ? inputFileVideo.files[0] : null;
+    if (file) {
+      renderModalPreviewVideo(URL.createObjectURL(file));
+    } else {
+      renderModalPreviewVideo('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
+    }
   } else {
     const bgUrl = (inputExcelBgFile && inputExcelBgFile.files[0]) 
       ? excelBgPreviewThumb.src 
@@ -1420,12 +1531,24 @@ window.previewSpecificSlide = (id) => {
 
   if (slide.type === 'image') {
     renderModalPreviewImage(slide.image_url);
+  } else if (slide.type === 'video') {
+    renderModalPreviewVideo(slide.image_url);
   } else if (slide.type === 'excel' && slide.excel_data) {
     renderModalPreviewExcel(slide.excel_data, slide.image_url);
   }
 
   openModal(modalPreview);
 };
+
+function renderModalPreviewVideo(url) {
+  const safeUrl = url ? encodeURI(url) : '';
+  previewTvStage.innerHTML = `
+    <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950">
+      <video src="${safeUrl}" class="absolute inset-0 w-full h-full object-cover blur-xl opacity-35 scale-110 pointer-events-none" autoplay muted loop playsinline></video>
+      <video src="${safeUrl}" class="relative z-10 max-w-full max-h-[85%] object-contain rounded-lg shadow-xl" autoplay muted controls playsinline></video>
+    </div>
+  `;
+}
 
 function renderModalPreviewImage(url) {
   const safeUrl = url ? encodeURI(url) : '';
@@ -1527,16 +1650,27 @@ window.openEditModal = (id) => {
 
   const subtitle = document.getElementById('edit-slide-subtitle');
   editInputFileImage.value = '';
+  if (editInputFileVideo) editInputFileVideo.value = '';
   editInputFileExcel.value = '';
 
   if (slide.type === 'image') {
     if (subtitle) subtitle.textContent = 'Slide Gambar / Poster';
     editWrapperImage.classList.remove('hidden');
+    if (editWrapperVideo) editWrapperVideo.classList.add('hidden');
     editWrapperExcel.classList.add('hidden');
     editImageCurrentThumb.src = slide.image_url || 'https://images.unsplash.com/photo-1594322436404-5a0526db4d13?auto=format&fit=crop&w=1200&q=80';
+  } else if (slide.type === 'video') {
+    if (subtitle) subtitle.textContent = 'Slide Video Informasi / Iklan';
+    editWrapperImage.classList.add('hidden');
+    if (editWrapperVideo) editWrapperVideo.classList.remove('hidden');
+    editWrapperExcel.classList.add('hidden');
+    if (editVideoCurrentPlayer) {
+      editVideoCurrentPlayer.src = slide.image_url || '';
+    }
   } else {
     if (subtitle) subtitle.textContent = `Slide Data Excel (${slide.excel_data?.rows?.length || 0} baris data)`;
     editWrapperImage.classList.add('hidden');
+    if (editWrapperVideo) editWrapperVideo.classList.add('hidden');
     editWrapperExcel.classList.remove('hidden');
 
     // Inisialisasi Data ke Live Spreadsheet Editor
@@ -1620,6 +1754,26 @@ formEditSlide.addEventListener('submit', async (e) => {
         image_url = publicUrlData.publicUrl;
       } else {
         image_url = await compressImageToDataUrl(file);
+      }
+    }
+
+    // Jika user mengunggah video baru
+    if (slide.type === 'video' && editInputFileVideo && editInputFileVideo.files[0]) {
+      const file = editInputFileVideo.files[0];
+      if (isSupabaseConfigured() && supabaseClient && !isDemoSession) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `vid-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const { error: uploadErr } = await supabaseClient.storage
+          .from('tv-media')
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
+        if (uploadErr) throw uploadErr;
+
+        const { data: publicUrlData } = supabaseClient.storage
+          .from('tv-media')
+          .getPublicUrl(fileName);
+        image_url = publicUrlData.publicUrl;
+      } else {
+        throw new Error('Mengganti video memerlukan koneksi Supabase Live.');
       }
     }
 

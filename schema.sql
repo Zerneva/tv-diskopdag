@@ -2,14 +2,14 @@
 -- SKEMA DATABASE SUPABASE: DIGITAL SIGNAGE TV LOBI KANTOR
 -- ============================================================
 
--- 1. Buat tabel utama untuk menyimpan slide (Gambar & Data Excel)
+-- 1. Buat tabel utama untuk menyimpan slide (Gambar, Video, & Data Excel)
 CREATE TABLE IF NOT EXISTS public.slides (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('image', 'excel')),
-  image_url TEXT,
+  type TEXT NOT NULL, -- 'image', 'video', 'excel'
+  image_url TEXT, -- Menyimpan URL gambar atau video
   excel_data JSONB, -- Format: { "headers": ["No", "Nama", "Divisi", "Status"], "rows": [["1", "Budi", "IT", "Hadir"], ...] }
-  duration INTEGER NOT NULL DEFAULT 15, -- Durasi tayang dalam detik (5 - 120 detik)
+  duration INTEGER NOT NULL DEFAULT 15, -- Durasi tayang dalam detik (5 - 180 detik)
   is_active BOOLEAN NOT NULL DEFAULT true,
   is_pinned BOOLEAN NOT NULL DEFAULT false,
   start_date DATE DEFAULT CURRENT_DATE,
@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS public.slides (
   updated_at TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Pastikan jika ada constraint lama 'slides_type_check', dihapus agar menerima type 'video'
+ALTER TABLE public.slides DROP CONSTRAINT IF EXISTS slides_type_check;
 
 -- 2. Buat tabel pengaturan global (Running Text & Pengaturan Layar)
 CREATE TABLE IF NOT EXISTS public.settings (

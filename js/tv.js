@@ -323,6 +323,60 @@ function renderSlide(slide, isPinnedMode) {
       if (progressBar) progressBar.style.width = '100%';
     }
   } 
+  // --- KASUS C: SLIDE VIDEO INFORMASI / IKLAN ---
+  else if (slide.type === 'video') {
+    const safeVideoUrl = slide.image_url ? encodeURI(slide.image_url) : '';
+
+    if (metaEl) {
+      metaEl.textContent = `Video • Durasi ${slide.duration}s • Update ${updatedTime}`;
+    }
+
+    stageContainer.innerHTML = `
+      <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950">
+        <!-- Ambient Blur Video Background -->
+        <video 
+          src="${safeVideoUrl}" 
+          class="absolute inset-0 w-full h-full object-cover blur-3xl opacity-35 scale-110 pointer-events-none"
+          autoplay muted loop playsinline
+          onerror="this.style.display='none'"
+        ></video>
+        <!-- Dark Overlay -->
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 pointer-events-none"></div>
+        <!-- Video Player Utama -->
+        <div class="relative z-10 p-4 max-w-full max-h-full flex items-center justify-center">
+          <video 
+            id="tv-main-video"
+            src="${safeVideoUrl}" 
+            class="max-w-[94vw] max-h-[77vh] object-contain rounded-2xl shadow-2xl shadow-black/60 border border-slate-700/60 ring-1 ring-white/10"
+            autoplay muted playsinline
+          ></video>
+        </div>
+      </div>
+    `;
+
+    const videoEl = document.getElementById('tv-main-video');
+    if (videoEl) {
+      videoEl.play().catch(e => console.warn('Autoplay video notice:', e));
+      videoEl.onended = () => {
+        if (!isPinnedMode && allSlides.length > 1) {
+          clearCountdown();
+          currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+          currentExcelPage = 0;
+          evaluatePlayback(true);
+        }
+      };
+    }
+
+    if (!isPinnedMode) {
+      startCountdown(slide.duration || 20, () => {
+        currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+        currentExcelPage = 0;
+        evaluatePlayback(true);
+      });
+    } else {
+      if (progressBar) progressBar.style.width = '100%';
+    }
+  }
   // --- KASUS B: SLIDE DATA TABEL EXCEL ---
   else if (slide.type === 'excel' && slide.excel_data) {
     const { headers = [], rows = [] } = slide.excel_data;
