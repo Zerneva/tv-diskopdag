@@ -646,7 +646,7 @@
 
   <!-- ================= MODAL 3: EDIT SLIDE ================= -->
   <div id="modal-edit-slide" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="modal-card bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto">
+    <div class="modal-card bg-white rounded-3xl max-w-3xl lg:max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto transition-all">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div class="flex items-center gap-2.5">
           <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
@@ -745,22 +745,77 @@
         </div>
 
         <!-- Bagian Ganti File Excel (khusus tipe excel) -->
-        <div id="edit-wrapper-excel" class="hidden space-y-3 pt-1 border-t border-slate-100">
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">
-            Data Excel & Pengaturan Tampilan
-          </label>
-          <div class="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-2">
-            <div class="flex items-center justify-between text-xs font-bold text-emerald-900">
-              <span id="edit-excel-info-stats">Data: 0 Baris</span>
-              <span class="text-[11px] text-emerald-700 font-medium">Ganti file Excel (Opsional)</span>
-            </div>
-            <input 
-              type="file" 
-              id="edit-input-file-excel" 
-              accept=".xlsx, .xls, .csv" 
-              class="w-full text-xs text-slate-600 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
-            />
+        <div id="edit-wrapper-excel" class="hidden space-y-4 pt-1 border-t border-slate-100">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Data Excel & Pengaturan Tampilan
+            </label>
+            <span class="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+              ✨ Live Edit Aktif
+            </span>
           </div>
+
+          <!-- LIVE SPREADSHEET EDITOR TABLE -->
+          <div class="space-y-2.5 p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-base">📊</span>
+                <span class="text-xs font-black text-slate-800">Live Editor Spreadsheet</span>
+                <span id="edit-excel-live-badge" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900">0 Baris</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="btn-edit-add-row" class="px-2.5 py-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-xs flex items-center gap-1">
+                  <span>➕ Tambah Baris</span>
+                </button>
+                <button type="button" id="btn-edit-reset-table" class="px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-white rounded-lg border border-slate-300 transition">
+                  <span>↻ Reset</span>
+                </button>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-500 leading-snug">
+              💡 <b>Edit langsung isi data:</b> Klik dan ketik teks/angka pada sel tabel di bawah untuk memperbaiki kesalahan tanpa perlu buka Microsoft Excel atau upload ulang file!
+            </p>
+
+            <!-- Table Container with scrolling -->
+            <div class="overflow-x-auto max-h-72 overflow-y-auto border border-emerald-200 rounded-xl bg-white shadow-inner">
+              <table id="edit-excel-table" class="w-full text-xs text-left border-collapse min-w-[500px]">
+                <thead id="edit-excel-thead" class="sticky top-0 bg-slate-100 text-slate-700 font-bold border-b border-slate-200 z-10">
+                  <!-- Header Generated Dynamically -->
+                </thead>
+                <tbody id="edit-excel-tbody" class="divide-y divide-slate-100">
+                  <!-- Rows Generated Dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+              <span>* Geser tabel ke samping jika kolom tidak muat</span>
+              <button type="button" id="btn-edit-add-col" class="text-emerald-700 hover:text-emerald-900 hover:underline font-bold text-[11px]">
+                + Tambah Kolom Baru
+              </button>
+            </div>
+          </div>
+
+          <!-- Opsi Ganti File Excel (Opsional jika ingin menimpa dengan file baru) -->
+          <details class="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-2xl p-3.5 transition">
+            <summary class="font-bold text-slate-700 cursor-pointer select-none flex items-center justify-between">
+              <span>📁 Atau Ganti dengan File Dokumen Baru (.xlsx, .csv)</span>
+              <span class="text-[10px] text-slate-400 font-normal">Klik untuk membuka</span>
+            </summary>
+            <div class="mt-2.5 pt-2 border-t border-slate-200 space-y-2">
+              <div class="flex items-center justify-between text-xs text-slate-600 font-medium">
+                <span id="edit-excel-info-stats">Data saat ini</span>
+                <span class="text-[10px] text-emerald-700">File baru akan otomatis dimuat ke Live Editor di atas</span>
+              </div>
+              <input 
+                type="file" 
+                id="edit-input-file-excel" 
+                accept=".xlsx, .xls, .csv" 
+                class="w-full text-xs text-slate-600 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+              />
+            </div>
+          </details>
 
           <!-- Background untuk Excel di Modal Edit -->
           <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">

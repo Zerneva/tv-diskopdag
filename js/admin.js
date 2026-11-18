@@ -91,6 +91,18 @@ const editExcelBgPreviewBox = document.getElementById('edit-excel-bg-preview-box
 const editExcelBgPreviewThumb = document.getElementById('edit-excel-bg-preview-thumb');
 const btnEditClearExcelBg = document.getElementById('btn-edit-clear-excel-bg');
 
+// Live Excel Editor Elements (Modal Edit)
+const editExcelLiveBadge = document.getElementById('edit-excel-live-badge');
+const editExcelTable = document.getElementById('edit-excel-table');
+const editExcelThead = document.getElementById('edit-excel-thead');
+const editExcelTbody = document.getElementById('edit-excel-tbody');
+const btnEditAddRow = document.getElementById('btn-edit-add-row');
+const btnEditAddCol = document.getElementById('btn-edit-add-col');
+const btnEditResetTable = document.getElementById('btn-edit-reset-table');
+
+let editLiveExcelState = { headers: [], rows: [] };
+let originalEditExcelState = null;
+
 // BroadcastChannel Sinkronisasi Real-Time Instan Antar-Tab (TV & Admin)
 const syncChannel = (typeof BroadcastChannel !== 'undefined') 
   ? new BroadcastChannel('tv_signage_channel') 
@@ -517,6 +529,221 @@ if (editInputExcelBgFile) {
       if (editInputExcelBgUrl) editInputExcelBgUrl.value = '';
     };
     reader.readAsDataURL(file);
+  });
+}
+
+// ------------------------------------------------------------
+// LOGIKA LIVE SPREADSHEET EDITOR (MODAL EDIT EXCEL)
+// ------------------------------------------------------------
+function renderLiveExcelEditor() {
+  if (!editExcelThead || !editExcelTbody) return;
+
+  const { headers = [], rows = [] } = editLiveExcelState;
+
+  // Render Header Tabel (Thead)
+  let theadHtml = '<tr><th class="p-2 w-10 text-center text-slate-400 font-mono text-[11px] bg-slate-100 border-r border-slate-200">#</th>';
+  headers.forEach((h, colIdx) => {
+    theadHtml += `
+      <th class="p-1.5 border-r border-slate-200 bg-slate-100 min-w-[140px]">
+        <div class="flex items-center gap-1">
+          <input 
+            type="text" 
+            class="edit-col-header w-full px-2 py-1 bg-white focus:bg-white border border-slate-200 focus:border-emerald-500 rounded text-xs font-bold text-slate-800 outline-none shadow-xs transition" 
+            value="${escapeHtml(h)}" 
+            data-col="${colIdx}" 
+            placeholder="Header ${colIdx + 1}"
+          />
+          <button 
+            type="button" 
+            class="btn-del-col text-slate-400 hover:text-rose-600 p-1 text-xs font-bold transition rounded hover:bg-rose-50" 
+            data-col="${colIdx}" 
+            title="Hapus Kolom Ini"
+          >✕</button>
+        </div>
+      </th>
+    `;
+  });
+  theadHtml += '<th class="p-2 w-12 text-center text-slate-400 text-xs bg-slate-100">Aksi</th></tr>';
+  editExcelThead.innerHTML = theadHtml;
+
+  // Render Baris Data (Tbody)
+  if (rows.length === 0) {
+    editExcelTbody.innerHTML = `
+      <tr>
+        <td colspan="${headers.length + 2}" class="p-6 text-center text-slate-400 text-xs italic">
+          Belum ada data baris. Klik tombol <b>"➕ Tambah Baris"</b> di atas untuk menambahkan baris baru.
+        </td>
+      </tr>
+    `;
+  } else {
+    let tbodyHtml = '';
+    rows.forEach((row, rowIdx) => {
+      tbodyHtml += `
+        <tr class="hover:bg-emerald-50/30 transition">
+          <td class="p-2 text-center text-slate-400 font-mono text-[11px] bg-slate-50/70 border-r border-slate-100 select-none">
+            ${rowIdx + 1}
+          </td>
+      `;
+
+      headers.forEach((_, colIdx) => {
+        const val = (row[colIdx] !== undefined && row[colIdx] !== null) ? String(row[colIdx]) : '';
+        tbodyHtml += `
+          <td class="p-1 border-r border-slate-100">
+            <input 
+              type="text" 
+              class="edit-cell-input w-full px-2.5 py-1.5 bg-slate-50/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-emerald-500 rounded text-xs text-slate-800 font-medium outline-none transition" 
+              value="${escapeHtml(val)}" 
+              data-row="${rowIdx}" 
+              data-col="${colIdx}" 
+            />
+          </td>
+        `;
+      });
+
+      tbodyHtml += `
+          <td class="p-1 text-center">
+            <button 
+              type="button" 
+              class="btn-del-row text-slate-300 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition font-bold text-xs" 
+              data-row="${rowIdx}" 
+              title="Hapus baris ${rowIdx + 1}"
+            >🗑️</button>
+          </td>
+        </tr>
+      `;
+    });
+    editExcelTbody.innerHTML = tbodyHtml;
+  }
+
+  // Update Badges & Stats
+  if (editExcelLiveBadge) {
+    editExcelLiveBadge.textContent = `${rows.length} Baris, ${headers.length} Kolom`;
+  }
+  if (editExcelInfoStats) {
+    editExcelInfoStats.textContent = `Terbaca: ${headers.length} Kolom, ${rows.length} Baris`;
+  }
+}
+
+// Event input edit header
+if (editExcelThead) {
+  editExcelThead.addEventListener('input', (e) => {
+    if (e.target.classList.contains('edit-col-header')) {
+      const colIdx = parseInt(e.target.dataset.col, 10);
+      if (editLiveExcelState.headers && editLiveExcelState.headers[colIdx] !== undefined) {
+        editLiveExcelState.headers[colIdx] = e.target.value;
+      }
+    }
+  });
+
+  editExcelThead.addEventListener('click', (e) => {
+    const delColBtn = e.target.closest('.btn-del-col');
+    if (delColBtn) {
+      const colIdx = parseInt(delColBtn.dataset.col, 10);
+      if (editLiveExcelState.headers.length <= 1) {
+        showToast('Tabel minimal harus memiliki 1 kolom!', 'warning');
+        return;
+      }
+      const colName = editLiveExcelState.headers[colIdx] || `Kolom ${colIdx + 1}`;
+      if (confirm(`Hapus kolom "${colName}" beserta seluruh isinya?`)) {
+        editLiveExcelState.headers.splice(colIdx, 1);
+        if (editLiveExcelState.rows) {
+          editLiveExcelState.rows.forEach(r => {
+            if (Array.isArray(r)) r.splice(colIdx, 1);
+          });
+        }
+        renderLiveExcelEditor();
+      }
+    }
+  });
+}
+
+// Event input edit sel tabel
+if (editExcelTbody) {
+  editExcelTbody.addEventListener('input', (e) => {
+    if (e.target.classList.contains('edit-cell-input')) {
+      const rowIdx = parseInt(e.target.dataset.row, 10);
+      const colIdx = parseInt(e.target.dataset.col, 10);
+      if (!editLiveExcelState.rows[rowIdx]) {
+        editLiveExcelState.rows[rowIdx] = new Array(editLiveExcelState.headers.length).fill('');
+      }
+      editLiveExcelState.rows[rowIdx][colIdx] = e.target.value;
+    }
+  });
+
+  editExcelTbody.addEventListener('click', (e) => {
+    const delRowBtn = e.target.closest('.btn-del-row');
+    if (delRowBtn) {
+      const rowIdx = parseInt(delRowBtn.dataset.row, 10);
+      editLiveExcelState.rows.splice(rowIdx, 1);
+      renderLiveExcelEditor();
+    }
+  });
+}
+
+// Tambah Baris Baru
+if (btnEditAddRow) {
+  btnEditAddRow.addEventListener('click', () => {
+    if (!editLiveExcelState.headers || editLiveExcelState.headers.length === 0) {
+      editLiveExcelState.headers = ['Kolom 1', 'Kolom 2', 'Kolom 3'];
+    }
+    const newRow = new Array(editLiveExcelState.headers.length).fill('');
+    if (!editLiveExcelState.rows) editLiveExcelState.rows = [];
+    editLiveExcelState.rows.push(newRow);
+    renderLiveExcelEditor();
+    
+    // Auto-scroll ke baris paling bawah dan fokuskan sel pertama
+    setTimeout(() => {
+      const tableContainer = editExcelTable ? editExcelTable.parentElement : null;
+      if (tableContainer) tableContainer.scrollTop = tableContainer.scrollHeight;
+      const lastRowInputs = editExcelTbody.querySelectorAll(`input[data-row="${editLiveExcelState.rows.length - 1}"]`);
+      if (lastRowInputs.length > 0) lastRowInputs[0].focus();
+    }, 50);
+  });
+}
+
+// Tambah Kolom Baru
+if (btnEditAddCol) {
+  btnEditAddCol.addEventListener('click', () => {
+    const newColNum = (editLiveExcelState.headers?.length || 0) + 1;
+    const colName = prompt('Masukkan nama kolom baru:', `Kolom ${newColNum}`);
+    if (colName !== null && colName.trim() !== '') {
+      if (!editLiveExcelState.headers) editLiveExcelState.headers = [];
+      editLiveExcelState.headers.push(colName.trim());
+      if (editLiveExcelState.rows) {
+        editLiveExcelState.rows.forEach(r => {
+          if (Array.isArray(r)) r.push('');
+        });
+      }
+      renderLiveExcelEditor();
+      showToast(`Kolom "${colName.trim()}" berhasil ditambahkan`, 'info');
+    }
+  });
+}
+
+// Reset Tabel ke Asli
+if (btnEditResetTable) {
+  btnEditResetTable.addEventListener('click', () => {
+    if (confirm('Kembalikan isi tabel ke data sebelum diedit?')) {
+      editLiveExcelState = JSON.parse(JSON.stringify(originalEditExcelState || { headers: [], rows: [] }));
+      renderLiveExcelEditor();
+      showToast('Isi tabel dikembalikan ke versi awal', 'info');
+    }
+  });
+}
+
+// Ganti file via input file di modal edit (otomatis render ke live editor)
+if (editInputFileExcel) {
+  editInputFileExcel.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const parsed = await parseExcelFile(file);
+      editLiveExcelState = parsed;
+      renderLiveExcelEditor();
+      showToast(`File dibaca: ${parsed.headers.length} Kolom, ${parsed.rows.length} Baris. Anda dapat langsung mengeditnya sebelum disimpan!`, 'success');
+    } catch (err) {
+      showToast(`Gagal membaca file Excel: ${err.message}`, 'error');
+    }
   });
 }
 
@@ -1279,9 +1506,14 @@ window.openEditModal = (id) => {
     if (subtitle) subtitle.textContent = `Slide Data Excel (${slide.excel_data?.rows?.length || 0} baris data)`;
     editWrapperImage.classList.add('hidden');
     editWrapperExcel.classList.remove('hidden');
-    if (editExcelInfoStats) {
-      editExcelInfoStats.textContent = `Terbaca: ${slide.excel_data?.headers?.length || 0} Kolom, ${slide.excel_data?.rows?.length || 0} Baris`;
-    }
+
+    // Inisialisasi Data ke Live Spreadsheet Editor
+    originalEditExcelState = slide.excel_data 
+      ? JSON.parse(JSON.stringify(slide.excel_data)) 
+      : { headers: ['No', 'Item / Kegiatan', 'Keterangan'], rows: [] };
+    editLiveExcelState = JSON.parse(JSON.stringify(originalEditExcelState));
+    renderLiveExcelEditor();
+
     // Set background info untuk Excel
     if (slide.image_url) {
       if (editInputExcelBgUrl) editInputExcelBgUrl.value = slide.image_url;
@@ -1359,11 +1591,36 @@ formEditSlide.addEventListener('submit', async (e) => {
       }
     }
 
-    // Jika user mengunggah file excel baru atau mengganti background excel
+    // Jika tipe excel, ambil data terbaru langsung dari elemen DOM Live Editor
     if (slide.type === 'excel') {
-      if (editInputFileExcel && editInputFileExcel.files[0]) {
-        excel_data = await parseExcelFile(editInputFileExcel.files[0]);
+      const headerInputs = Array.from(editExcelThead ? editExcelThead.querySelectorAll('.edit-col-header') : []);
+      const activeHeaders = headerInputs.length > 0
+        ? headerInputs.map((inp, idx) => inp.value.trim() || `Kolom ${idx + 1}`)
+        : (slide.excel_data?.headers || ['Kolom 1']);
+
+      const rowElements = Array.from(editExcelTbody ? editExcelTbody.querySelectorAll('tr') : []);
+      const activeRows = [];
+      rowElements.forEach(tr => {
+        const cellInputs = Array.from(tr.querySelectorAll('.edit-cell-input'));
+        if (cellInputs.length > 0) {
+          const rowVals = cellInputs.map(c => c.value);
+          if (rowVals.some(v => v.trim() !== '')) {
+            activeRows.push(rowVals);
+          }
+        }
+      });
+
+      if (activeRows.length === 0) {
+        showToast('Data tabel Excel tidak boleh kosong! Tambahkan minimal 1 baris data.', 'warning');
+        btnSaveEdit.disabled = false;
+        btnSaveEdit.innerHTML = '<span>💾 Simpan Perubahan</span>';
+        return;
       }
+
+      excel_data = {
+        headers: activeHeaders,
+        rows: activeRows
+      };
 
       // Cek apakah ada file background baru diunggah untuk excel
       const editBgFile = editInputExcelBgFile ? editInputExcelBgFile.files[0] : null;
