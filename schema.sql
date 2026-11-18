@@ -6,8 +6,8 @@
 CREATE TABLE IF NOT EXISTS public.slides (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
-  type TEXT NOT NULL, -- 'image', 'video', 'excel'
-  image_url TEXT, -- Menyimpan URL gambar atau video
+  type TEXT NOT NULL, -- 'image', 'video', 'excel', 'link'
+  image_url TEXT, -- Menyimpan URL gambar, video, atau tautan link media online (YouTube, Web, dll)
   excel_data JSONB, -- Format: { "headers": ["No", "Nama", "Divisi", "Status"], "rows": [["1", "Budi", "IT", "Hadir"], ...] }
   duration INTEGER NOT NULL DEFAULT 15, -- Durasi tayang dalam detik (5 - 180 detik)
   is_active BOOLEAN NOT NULL DEFAULT true,

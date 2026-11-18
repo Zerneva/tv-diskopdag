@@ -39,6 +39,14 @@ const videoPreviewInfo = document.getElementById('video-preview-info');
 const videoPreviewPlayer = document.getElementById('video-preview-player');
 const dropzoneVideo = document.getElementById('dropzone-video');
 
+// Wrapper Upload Link Media / YouTube
+const wrapperFileLink = document.getElementById('wrapper-file-link');
+const inputMediaUrl = document.getElementById('input-media-url');
+const btnTestLink = document.getElementById('btn-test-link');
+const linkPreviewBox = document.getElementById('link-preview-box');
+const linkPreviewTypeBadge = document.getElementById('link-preview-type-badge');
+const linkPreviewStage = document.getElementById('link-preview-stage');
+
 const wrapperFileExcel = document.getElementById('wrapper-file-excel');
 const inputFileExcel = document.getElementById('input-file-excel');
 const excelSummaryBox = document.getElementById('excel-summary-box');
@@ -84,6 +92,12 @@ const editImageCurrentThumb = document.getElementById('edit-image-current-thumb'
 const editWrapperVideo = document.getElementById('edit-wrapper-video');
 const editVideoCurrentPlayer = document.getElementById('edit-video-current-player');
 const editInputFileVideo = document.getElementById('edit-input-file-video');
+
+// Edit Modal Link Elements
+const editWrapperLink = document.getElementById('edit-wrapper-link');
+const editInputMediaUrl = document.getElementById('edit-input-media-url');
+const btnEditTestLink = document.getElementById('btn-edit-test-link');
+const editLinkPreviewBox = document.getElementById('edit-link-preview-box');
 const editWrapperExcel = document.getElementById('edit-wrapper-excel');
 const editInputFileExcel = document.getElementById('edit-input-file-excel');
 const editExcelInfoStats = document.getElementById('edit-excel-info-stats');
@@ -364,25 +378,72 @@ if (btnLogout) {
 }
 
 // ------------------------------------------------------------
-// 2. PARSER & INPUT DINAMIS FORM KONTEN (GAMBAR vs EXCEL)
+// 2. PARSER & INPUT DINAMIS FORM KONTEN (GAMBAR vs EXCEL vs LINK)
 // ------------------------------------------------------------
 function updateTypeVisibility() {
   const type = inputType.value;
-  if (type === 'image') {
-    wrapperFileImage.classList.remove('hidden');
-    if (wrapperFileVideo) wrapperFileVideo.classList.add('hidden');
-    wrapperFileExcel.classList.add('hidden');
-  } else if (type === 'video') {
-    wrapperFileImage.classList.add('hidden');
-    if (wrapperFileVideo) wrapperFileVideo.classList.remove('hidden');
-    wrapperFileExcel.classList.add('hidden');
-  } else {
-    wrapperFileImage.classList.add('hidden');
-    if (wrapperFileVideo) wrapperFileVideo.classList.add('hidden');
-    wrapperFileExcel.classList.remove('hidden');
-  }
+  if (wrapperFileImage) wrapperFileImage.classList.toggle('hidden', type !== 'image');
+  if (wrapperFileVideo) wrapperFileVideo.classList.toggle('hidden', type !== 'video');
+  if (wrapperFileLink) wrapperFileLink.classList.toggle('hidden', type !== 'link');
+  if (wrapperFileExcel) wrapperFileExcel.classList.toggle('hidden', type !== 'excel');
 }
 inputType.addEventListener('change', updateTypeVisibility);
+
+// Helper Pratinjau Tautan Link Media
+function renderLinkPreview(url, stageEl, badgeEl) {
+  if (!url || !stageEl) return;
+  const media = (typeof parseMediaUrl === 'function') ? parseMediaUrl(url) : null;
+  if (!media) {
+    stageEl.innerHTML = `<p class="text-rose-400 text-xs p-4 text-center">Format URL tidak valid atau tidak dikenali</p>`;
+    if (badgeEl) badgeEl.textContent = 'Tidak Valid';
+    return;
+  }
+
+  if (badgeEl) {
+    badgeEl.textContent = media.titleHint || media.type.toUpperCase();
+  }
+
+  if (media.type === 'youtube') {
+    stageEl.innerHTML = `
+      <iframe src="${media.embedUrl}" class="w-full h-full border-0 pointer-events-auto" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    `;
+  } else if (media.type === 'video') {
+    stageEl.innerHTML = `
+      <video src="${encodeURI(media.embedUrl)}" class="w-full h-full object-contain" controls autoplay muted loop playsinline></video>
+    `;
+  } else if (media.type === 'image') {
+    stageEl.innerHTML = `
+      <img src="${encodeURI(media.embedUrl)}" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1594322436404-5a0526db4d13?auto=format&fit=crop&w=1200&q=80'" />
+    `;
+  } else {
+    stageEl.innerHTML = `
+      <iframe src="${media.embedUrl}" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
+    `;
+  }
+}
+
+if (btnTestLink) {
+  btnTestLink.addEventListener('click', () => {
+    const url = inputMediaUrl ? inputMediaUrl.value.trim() : '';
+    if (!url) {
+      showToast('Masukkan tautan URL media terlebih dahulu', 'warning');
+      return;
+    }
+    if (linkPreviewBox) linkPreviewBox.classList.remove('hidden');
+    renderLinkPreview(url, linkPreviewStage, linkPreviewTypeBadge);
+    showToast('Pratinjau tautan media berhasil dimuat', 'info');
+  });
+}
+
+if (inputMediaUrl) {
+  inputMediaUrl.addEventListener('change', () => {
+    const url = inputMediaUrl.value.trim();
+    if (url) {
+      if (linkPreviewBox) linkPreviewBox.classList.remove('hidden');
+      renderLinkPreview(url, linkPreviewStage, linkPreviewTypeBadge);
+    }
+  });
+}
 
 // Drag and drop helper
 function setupDragAndDrop(dropzone, inputElement) {
@@ -988,28 +1049,7 @@ contentForm.addEventListener('submit', async (e) => {
       } else {
         image_url = await compressImageToDataUrl(file);
       }
-    }
-
-    // Jika user mengunggah video baru
-    if (slide.type === 'video' && editInputFileVideo && editInputFileVideo.files[0]) {
-      const file = editInputFileVideo.files[0];
-      if (isSupabaseConfigured() && supabaseClient && !isDemoSession) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `vid-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const { error: uploadErr } = await supabaseClient.storage
-          .from('tv-media')
-          .upload(fileName, file, { cacheControl: '3600', upsert: false });
-        if (uploadErr) throw uploadErr;
-
-        const { data: publicUrlData } = supabaseClient.storage
-          .from('tv-media')
-          .getPublicUrl(fileName);
-        image_url = publicUrlData.publicUrl;
-      } else {
-        throw new Error('Mengganti video memerlukan koneksi Supabase Live.');
-      }
-    } 
-    else if (type === 'video') {
+    } else if (type === 'video') {
       const file = inputFileVideo ? inputFileVideo.files[0] : null;
       if (!file) throw new Error('Silakan pilih file video MP4/WEBM terlebih dahulu');
 
@@ -1030,8 +1070,11 @@ contentForm.addEventListener('submit', async (e) => {
       } else {
         throw new Error('Upload video membutuhkan koneksi Supabase Live karena kapasitas memori browser lokal tidak mencukupi untuk video.');
       }
-    }
-    else {
+    } else if (type === 'link') {
+      const rawLink = inputMediaUrl ? inputMediaUrl.value.trim() : '';
+      if (!rawLink) throw new Error('Silakan masukkan tautan link media (YouTube, video/foto online, atau web)');
+      image_url = rawLink;
+    } else {
       if (!parsedExcelBuffer) {
         const file = inputFileExcel.files[0];
         if (!file) throw new Error('Silakan pilih file Excel (.xlsx / .csv)');
@@ -1103,6 +1146,8 @@ contentForm.addEventListener('submit', async (e) => {
     if (videoPreviewBox) videoPreviewBox.classList.add('hidden');
     if (videoPreviewPlayer) videoPreviewPlayer.src = '';
     if (inputFileVideo) inputFileVideo.value = '';
+    if (linkPreviewBox) linkPreviewBox.classList.add('hidden');
+    if (inputMediaUrl) inputMediaUrl.value = '';
     excelSummaryBox.classList.add('hidden');
     if (excelBgPreviewBox) excelBgPreviewBox.classList.add('hidden');
     if (inputExcelBgFile) inputExcelBgFile.value = '';
@@ -1184,6 +1229,7 @@ async function loadAdminSlides() {
     if (currentSlideFilter === 'excel') return slide.type === 'excel';
     if (currentSlideFilter === 'image') return slide.type === 'image';
     if (currentSlideFilter === 'video') return slide.type === 'video';
+    if (currentSlideFilter === 'link') return slide.type === 'link';
     return true;
   });
 
@@ -1207,6 +1253,10 @@ async function loadAdminSlides() {
       typeBadge = `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-lg flex items-center gap-1">📊 EXCEL (${slide.excel_data?.rows?.length || 0} baris)</span>`;
     } else if (slide.type === 'video') {
       typeBadge = `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 rounded-lg flex items-center gap-1">🎬 VIDEO</span>`;
+    } else if (slide.type === 'link') {
+      const media = (typeof parseMediaUrl === 'function') ? parseMediaUrl(slide.image_url) : null;
+      const subLabel = media?.type === 'youtube' ? 'YOUTUBE' : (media?.type === 'video' ? 'VIDEO LINK' : (media?.type === 'image' ? 'FOTO LINK' : 'LINK WEB'));
+      typeBadge = `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-sky-100 text-sky-800 rounded-lg flex items-center gap-1">🔗 ${subLabel}</span>`;
     } else {
       typeBadge = `<span class="px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 rounded-lg flex items-center gap-1">🖼️ GAMBAR</span>`;
     }
@@ -1236,17 +1286,31 @@ async function loadAdminSlides() {
       ? 'border-amber-400 bg-amber-50/20 ring-2 ring-amber-400/20 shadow-md' 
       : 'border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-sm';
 
+    let thumbContent = '';
+    if (slide.type === 'image' && safeImageUrl) {
+      thumbContent = `<img src="${safeImageUrl}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1594322436404-5a0526db4d13?auto=format&fit=crop&w=1200&q=80'" />`;
+    } else if (slide.type === 'video') {
+      thumbContent = `<div class="w-full h-full bg-purple-950 flex items-center justify-center text-purple-300 font-bold text-lg">🎬</div>`;
+    } else if (slide.type === 'link') {
+      const media = (typeof parseMediaUrl === 'function') ? parseMediaUrl(slide.image_url) : null;
+      if (media && media.thumbnailUrl) {
+        thumbContent = `<img src="${encodeURI(media.thumbnailUrl)}" class="w-full h-full object-cover" onerror="this.outerHTML='<div class=\\'w-full h-full bg-sky-950 flex items-center justify-center text-sky-300 font-bold text-lg\\'>🔗</div>'" />`;
+      } else if (media && media.type === 'video') {
+        thumbContent = `<div class="w-full h-full bg-purple-950 flex items-center justify-center text-purple-300 font-bold text-lg">🎬</div>`;
+      } else {
+        thumbContent = `<div class="w-full h-full bg-sky-950 flex items-center justify-center text-sky-300 font-bold text-lg">🔗</div>`;
+      }
+    } else {
+      thumbContent = `<span class="text-xl">📊</span>`;
+    }
+
     return `
       <div class="p-4 sm:p-5 rounded-2xl border ${cardBorder} flex flex-wrap items-center justify-between gap-4 transition duration-200">
         <!-- Informasi Kiri -->
         <div class="flex items-start gap-4 min-w-[260px] flex-1">
           <!-- Thumbnail Kecil -->
           <div class="w-16 h-12 rounded-xl bg-slate-900 border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-xs">
-            ${slide.type === 'image' && safeImageUrl 
-              ? `<img src="${safeImageUrl}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1594322436404-5a0526db4d13?auto=format&fit=crop&w=1200&q=80'" />` 
-              : (slide.type === 'video' 
-                  ? `<div class="w-full h-full bg-purple-950 flex items-center justify-center text-purple-300 font-bold text-lg">🎬</div>` 
-                  : `<span class="text-xl">📊</span>`)}
+            ${thumbContent}
           </div>
 
           <div class="space-y-1">
@@ -1501,6 +1565,9 @@ btnPreviewModalTrigger.addEventListener('click', () => {
     } else {
       renderModalPreviewVideo('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
     }
+  } else if (type === 'link') {
+    const url = inputMediaUrl ? inputMediaUrl.value.trim() : '';
+    renderModalPreviewLink(url);
   } else {
     const bgUrl = (inputExcelBgFile && inputExcelBgFile.files[0]) 
       ? excelBgPreviewThumb.src 
@@ -1533,12 +1600,44 @@ window.previewSpecificSlide = (id) => {
     renderModalPreviewImage(slide.image_url);
   } else if (slide.type === 'video') {
     renderModalPreviewVideo(slide.image_url);
+  } else if (slide.type === 'link') {
+    renderModalPreviewLink(slide.image_url);
   } else if (slide.type === 'excel' && slide.excel_data) {
     renderModalPreviewExcel(slide.excel_data, slide.image_url);
   }
 
   openModal(modalPreview);
 };
+
+function renderModalPreviewLink(url) {
+  const media = (typeof parseMediaUrl === 'function') ? parseMediaUrl(url) : null;
+  if (!media) {
+    previewTvStage.innerHTML = `
+      <div class="p-8 text-center text-rose-400 bg-slate-900/80 rounded-2xl border border-rose-800">
+        <p class="text-sm font-bold">Tautan link media kosong atau tidak valid</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (media.type === 'youtube') {
+    previewTvStage.innerHTML = `
+      <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-black">
+        <iframe src="${media.embedUrl}" class="w-full h-full border-0 pointer-events-auto" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    `;
+  } else if (media.type === 'video') {
+    renderModalPreviewVideo(media.embedUrl);
+  } else if (media.type === 'image') {
+    renderModalPreviewImage(media.embedUrl);
+  } else {
+    previewTvStage.innerHTML = `
+      <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-900">
+        <iframe src="${media.embedUrl}" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+    `;
+  }
+}
 
 function renderModalPreviewVideo(url) {
   const safeUrl = url ? encodeURI(url) : '';
@@ -1657,20 +1756,33 @@ window.openEditModal = (id) => {
     if (subtitle) subtitle.textContent = 'Slide Gambar / Poster';
     editWrapperImage.classList.remove('hidden');
     if (editWrapperVideo) editWrapperVideo.classList.add('hidden');
+    if (editWrapperLink) editWrapperLink.classList.add('hidden');
     editWrapperExcel.classList.add('hidden');
     editImageCurrentThumb.src = slide.image_url || 'https://images.unsplash.com/photo-1594322436404-5a0526db4d13?auto=format&fit=crop&w=1200&q=80';
   } else if (slide.type === 'video') {
     if (subtitle) subtitle.textContent = 'Slide Video Informasi / Iklan';
     editWrapperImage.classList.add('hidden');
     if (editWrapperVideo) editWrapperVideo.classList.remove('hidden');
+    if (editWrapperLink) editWrapperLink.classList.add('hidden');
     editWrapperExcel.classList.add('hidden');
     if (editVideoCurrentPlayer) {
       editVideoCurrentPlayer.src = slide.image_url || '';
+    }
+  } else if (slide.type === 'link') {
+    if (subtitle) subtitle.textContent = 'Slide Tautan Link Media (YouTube / Foto / Video Online)';
+    editWrapperImage.classList.add('hidden');
+    if (editWrapperVideo) editWrapperVideo.classList.add('hidden');
+    if (editWrapperLink) editWrapperLink.classList.remove('hidden');
+    editWrapperExcel.classList.add('hidden');
+    if (editInputMediaUrl) {
+      editInputMediaUrl.value = slide.image_url || '';
+      renderLinkPreview(slide.image_url, editLinkPreviewBox);
     }
   } else {
     if (subtitle) subtitle.textContent = `Slide Data Excel (${slide.excel_data?.rows?.length || 0} baris data)`;
     editWrapperImage.classList.add('hidden');
     if (editWrapperVideo) editWrapperVideo.classList.add('hidden');
+    if (editWrapperLink) editWrapperLink.classList.add('hidden');
     editWrapperExcel.classList.remove('hidden');
 
     // Inisialisasi Data ke Live Spreadsheet Editor
@@ -1777,6 +1889,18 @@ formEditSlide.addEventListener('submit', async (e) => {
       }
     }
 
+    // Jika slide bertipe link
+    if (slide.type === 'link') {
+      const newUrl = editInputMediaUrl ? editInputMediaUrl.value.trim() : '';
+      if (!newUrl) {
+        showToast('Tautan link media tidak boleh kosong!', 'warning');
+        btnSaveEdit.disabled = false;
+        btnSaveEdit.innerHTML = '<span>💾 Simpan Perubahan</span>';
+        return;
+      }
+      image_url = newUrl;
+    }
+
     // Jika tipe excel, ambil data terbaru langsung dari elemen DOM Live Editor
     if (slide.type === 'excel') {
       const headerInputs = Array.from(editExcelThead ? editExcelThead.querySelectorAll('.edit-col-header') : []);
@@ -1872,6 +1996,25 @@ formEditSlide.addEventListener('submit', async (e) => {
     btnSaveEdit.innerHTML = `<span>💾 Simpan Perubahan</span>`;
   }
 });
+
+if (btnEditTestLink) {
+  btnEditTestLink.addEventListener('click', () => {
+    const url = editInputMediaUrl ? editInputMediaUrl.value.trim() : '';
+    if (!url) {
+      showToast('Masukkan link terlebih dahulu', 'warning');
+      return;
+    }
+    renderLinkPreview(url, editLinkPreviewBox);
+    showToast('Pratinjau link diperbarui', 'info');
+  });
+}
+
+if (editInputMediaUrl) {
+  editInputMediaUrl.addEventListener('change', () => {
+    const url = editInputMediaUrl.value.trim();
+    if (url) renderLinkPreview(url, editLinkPreviewBox);
+  });
+}
 
 // ------------------------------------------------------------
 // 10. LISTENER REALTIME ADMIN (SUPABASE & LOCAL STORAGE)

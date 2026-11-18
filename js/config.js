@@ -142,3 +142,77 @@ function resetToDemoMode() {
   localStorage.removeItem('TV_SIGNAGE_SUPABASE_KEY');
   window.location.reload();
 }
+
+// ============================================================
+// PARSER TAUTAN MEDIA ONLINE (YOUTUBE, GOOGLE DRIVE, VIDEO, FOTO, WEB)
+// ============================================================
+function parseMediaUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  let url = rawUrl.trim();
+  if (!url) return null;
+
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+
+  // 1. YouTube (Watch, Share youtu.be, Shorts, Embed)
+  const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  if (ytMatch && ytMatch[1]) {
+    const videoId = ytMatch[1];
+    return {
+      type: 'youtube',
+      originalUrl: url,
+      videoId: videoId,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}&playsinline=1&rel=0&modestbranding=1`,
+      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      titleHint: 'YouTube Video'
+    };
+  }
+
+  // 2. Google Drive Share Image
+  const gdriveMatch = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/i);
+  if (gdriveMatch && gdriveMatch[1]) {
+    const gId = gdriveMatch[1];
+    const directUrl = `https://lh3.googleusercontent.com/d/${gId}`;
+    return {
+      type: 'image',
+      originalUrl: url,
+      embedUrl: directUrl,
+      thumbnailUrl: directUrl,
+      titleHint: 'Google Drive Image'
+    };
+  }
+
+  // 3. Direct Video File (.mp4, .webm, .ogg, .mov, .m4v)
+  const cleanPath = url.split('?')[0].toLowerCase();
+  if (/\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(cleanPath)) {
+    return {
+      type: 'video',
+      originalUrl: url,
+      embedUrl: url,
+      thumbnailUrl: '',
+      titleHint: 'Video Online (' + cleanPath.split('.').pop().toUpperCase() + ')'
+    };
+  }
+
+  // 4. Direct Image File (.jpg, .jpeg, .png, .webp, .gif, .svg, .avif) atau CDN gambar
+  if (/\.(jpg|jpeg|png|webp|gif|svg|avif)$/i.test(cleanPath) || url.includes('images.unsplash.com') || url.includes('i.imgur.com')) {
+    return {
+      type: 'image',
+      originalUrl: url,
+      embedUrl: url,
+      thumbnailUrl: url,
+      titleHint: 'Gambar Online'
+    };
+  }
+
+  // 5. Default Fallback: Webpage / Iframe Kiosk
+  return {
+    type: 'web',
+    originalUrl: url,
+    embedUrl: url,
+    thumbnailUrl: '',
+    titleHint: 'Halaman Web / Dasbor Kiosk'
+  };
+}
+

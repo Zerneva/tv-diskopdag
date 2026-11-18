@@ -331,7 +331,7 @@ function renderSlide(slide, isPinnedMode) {
       metaEl.textContent = `Video • Durasi ${slide.duration}s • Update ${updatedTime}`;
     }
 
-    stageContainer.innerHTML = `
+    stage.innerHTML = `
       <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950">
         <!-- Ambient Blur Video Background -->
         <video 
@@ -365,6 +365,119 @@ function renderSlide(slide, isPinnedMode) {
           evaluatePlayback(true);
         }
       };
+    }
+
+    if (!isPinnedMode) {
+      startCountdown(slide.duration || 20, () => {
+        currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+        currentExcelPage = 0;
+        evaluatePlayback(true);
+      });
+    } else {
+      if (progressBar) progressBar.style.width = '100%';
+    }
+  }
+  // --- KASUS D: SLIDE TAUTAN LINK MEDIA (YOUTUBE / VIDEO / FOTO / WEB) ---
+  else if (slide.type === 'link') {
+    const media = (typeof parseMediaUrl === 'function') 
+      ? parseMediaUrl(slide.image_url) 
+      : { type: 'web', embedUrl: slide.image_url };
+
+    const typeLabel = media?.type === 'youtube' 
+      ? 'YouTube' 
+      : (media?.type === 'video' ? 'Video Online' : (media?.type === 'image' ? 'Foto Online' : 'Tautan Web'));
+
+    if (metaEl) {
+      metaEl.textContent = `${typeLabel} • Slide ${currentSlideIndex + 1} dari ${allSlides.length} • Update ${updatedTime}`;
+    }
+
+    if (!media) {
+      stage.innerHTML = `
+        <div class="p-8 text-center text-rose-400 bg-slate-900/60 rounded-2xl border border-rose-800">
+          <p class="text-xl font-bold">Tautan link media tidak valid</p>
+        </div>
+      `;
+    } else if (media.type === 'youtube') {
+      stage.innerHTML = `
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-black">
+          <iframe 
+            src="${media.embedUrl}" 
+            class="w-full h-full border-0 pointer-events-auto"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            allowfullscreen
+          ></iframe>
+        </div>
+      `;
+    } else if (media.type === 'video') {
+      const safeVideoUrl = encodeURI(media.embedUrl);
+      stage.innerHTML = `
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950">
+          <!-- Ambient Blur Video Background -->
+          <video 
+            src="${safeVideoUrl}" 
+            class="absolute inset-0 w-full h-full object-cover blur-3xl opacity-35 scale-110 pointer-events-none"
+            autoplay muted loop playsinline
+            onerror="this.style.display='none'"
+          ></video>
+          <!-- Dark Overlay -->
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 pointer-events-none"></div>
+          <!-- Video Player Utama -->
+          <div class="relative z-10 p-4 max-w-full max-h-full flex items-center justify-center">
+            <video 
+              id="tv-link-video"
+              src="${safeVideoUrl}" 
+              class="max-w-[94vw] max-h-[77vh] object-contain rounded-2xl shadow-2xl shadow-black/60 border border-slate-700/60 ring-1 ring-white/10"
+              autoplay muted playsinline
+            ></video>
+          </div>
+        </div>
+      `;
+      const videoEl = document.getElementById('tv-link-video');
+      if (videoEl) {
+        videoEl.play().catch(e => console.warn('Autoplay video notice:', e));
+        videoEl.onended = () => {
+          if (!isPinnedMode && allSlides.length > 1) {
+            clearCountdown();
+            currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+            currentExcelPage = 0;
+            evaluatePlayback(true);
+          }
+        };
+      }
+    } else if (media.type === 'image') {
+      const safeImageUrl = encodeURI(media.embedUrl);
+      const safeTitle = escapeHtml(slide.title);
+      stage.innerHTML = `
+        <div class="relative w-full h-full flex items-center justify-center slide-enter overflow-hidden">
+          <img 
+            src="${safeImageUrl}" 
+            alt="" 
+            aria-hidden="true"
+            class="absolute inset-0 w-full h-full object-cover blur-3xl opacity-35 scale-110 pointer-events-none select-none filter contrast-125 brightness-90"
+            onerror="this.style.display='none'"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 pointer-events-none"></div>
+          <div class="relative z-10 p-4 max-w-full max-h-full flex items-center justify-center">
+            <img 
+              src="${safeImageUrl}" 
+              alt="${safeTitle}" 
+              class="max-w-[94vw] max-h-[77vh] object-contain rounded-2xl shadow-2xl shadow-black/60 border border-slate-700/60 ring-1 ring-white/10"
+              onerror="this.src='https://images.unsplash.com/photo-1594322436404-5a0526db4d13?auto=format&fit=crop&w=1200&q=80'"
+            />
+          </div>
+        </div>
+      `;
+    } else {
+      // media.type === 'web'
+      stage.innerHTML = `
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-900">
+          <iframe 
+            src="${media.embedUrl}" 
+            class="w-full h-full border-0"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          ></iframe>
+        </div>
+      `;
     }
 
     if (!isPinnedMode) {
