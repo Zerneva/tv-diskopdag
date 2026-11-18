@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Admin - TV Informasi Lobi</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS v2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- SheetJS CDN untuk ekstraksi file Excel langsung di browser -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    /* Styling scrollbar halus */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Ambient background gradient mesh */
+    .bg-mesh {
+      background-color: #f8fafc;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.06) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(14, 165, 233, 0.05) 0px, transparent 50%);
+    }
+
+    /* Drop zone hover highlight */
+    .dropzone-active {
+      border-color: #3b82f6 !important;
+      background-color: #eff6ff !important;
+    }
+
+    /* Toast animation */
+    @keyframes toastIn {
+      from { transform: translateY(100%) scale(0.9); opacity: 0; }
+      to   { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    @keyframes toastOut {
+      from { transform: translateY(0) scale(1); opacity: 1; }
+      to   { transform: translateY(-20px) scale(0.95); opacity: 0; }
+    }
+    .toast-animate-in {
+      animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .toast-animate-out {
+      animation: toastOut 0.25s ease-in forwards;
+    }
+  </style>
+</head>
+<body class="bg-mesh text-slate-800 min-h-screen font-sans antialiased">
+
+  <!-- ================= TOAST CONTAINER ================= -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- ================= SECTION 1: FORM LOGIN ADMIN ================= -->
+  <div id="login-section" class="min-h-screen flex items-center justify-center p-4">
+    <div class="relative bg-white/90 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-2xl max-w-md w-full border border-slate-200/80">
+      
+      <!-- Top Decorative Accent -->
+      <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+
+      <div class="flex items-center gap-3.5 mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Admin TV Lobi</h1>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-700">v2.0</span>
+          </div>
+          <p class="text-xs text-slate-500 font-medium">Pusat Kendali Informasi Digital Signage</p>
+        </div>
+      </div>
+
+      <!-- Alert Pesan Login -->
+      <div id="login-alert" class="hidden mb-4 p-3.5 rounded-xl text-xs font-semibold"></div>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Email Petugas / Admin</label>
+          <div class="relative">
+            <input 
+              type="email" 
+              id="login-email" 
+              placeholder="admin@kantor.com" 
+              required 
+              class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm transition"
+            />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Kata Sandi</label>
+          <input 
+            type="password" 
+            id="login-password" 
+            placeholder="••••••••" 
+            required 
+            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm transition"
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          id="login-submit-btn" 
+          class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] text-white font-bold py-3 rounded-xl transition shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 text-sm"
+        >
+          <span>Masuk ke Dashboard</span>
+        </button>
+      </form>
+
+      <!-- Pilihan Cepat Mode Demo / Setup Supabase -->
+      <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-2.5 text-center">
+        <button 
+          id="btn-demo-login" 
+          type="button" 
+          class="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl transition border border-emerald-200/60 flex items-center justify-center gap-2"
+        >
+          <span>⚡ Masuk Mode Demo Cepat (Tanpa Supabase)</span>
+        </button>
+        <button 
+          id="btn-open-supabase-setup" 
+          type="button" 
+          class="text-xs text-slate-500 hover:text-blue-600 transition underline underline-offset-2"
+        >
+          ⚙️ Atur Kredensial Supabase (URL & Anon Key)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SECTION 2: DASHBOARD UTAMA ADMIN ================= -->
+  <div id="dashboard-section" class="hidden min-h-screen flex flex-col">
+
+    <!-- TOP NAVBAR -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-40 shadow-xs">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4 py-3">
+        <!-- Logo & Judul -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base sm:text-lg font-black text-slate-900 leading-tight">Kontrol TV Lobi</h1>
+              <span id="conn-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-700">ONLINE</span>
+            </div>
+            <p id="user-email-label" class="text-xs text-slate-500 truncate max-w-[200px] sm:max-w-xs">admin@kantor.com</p>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi Topbar -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <button 
+            id="btn-settings-modal" 
+            title="Pengaturan Koneksi"
+            class="p-2 sm:px-3 sm:py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5"
+          >
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span class="hidden sm:inline">Koneksi</span>
+          </button>
+
+          <a 
+            href="index.html" 
+            target="_blank" 
+            class="px-3.5 py-2 text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition flex items-center gap-1.5 border border-blue-200/60"
+          >
+            <span>Buka Layar TV</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+            </svg>
+          </a>
+
+          <button 
+            id="btn-logout" 
+            class="px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition"
+          >
+            Keluar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN BODY -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6 flex-1">
+
+      <!-- BANNER STATUS: SEDANG DI-PIN LIVE (Kondisional) -->
+      <div id="pin-alert-banner" class="hidden p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25 flex flex-wrap items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
+            📌
+          </div>
+          <div>
+            <h2 class="text-sm sm:text-base font-black tracking-tight">Layar TV Sedang Dikunci (Pin Live Prioritas)</h2>
+            <p id="pin-alert-text" class="text-xs sm:text-sm text-amber-100 font-medium">Slide saat ini mengunci layar TV secara eksklusif.</p>
+          </div>
+        </div>
+        <button 
+          id="btn-unpin-banner" 
+          class="px-4 py-2 bg-white text-amber-800 hover:bg-amber-50 text-xs font-bold rounded-xl transition shadow active:scale-95"
+        >
+          Lepas Pin & Putar Normal
+        </button>
+      </div>
+
+      <!-- GRID DUA KOLOM: FORM INPUT & PENGATURAN RUNNING TEXT -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- KOLOM 1 & 2: FORM UNGGAH KONTEN BARU -->
+        <div class="lg:col-span-2 bg-white p-6 sm:p-7 rounded-3xl shadow-sm border border-slate-200/80 space-y-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-black text-slate-900 tracking-tight">Tambah Konten Baru ke TV</h2>
+              <p class="text-xs text-slate-500">Unggah poster gambar atau tabel spreadsheet Excel</p>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">Full-Screen Display</span>
+          </div>
+
+          <form id="content-form" class="space-y-4">
+            <!-- Judul Informasi -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                Judul Informasi <span class="text-rose-500">*</span> (Tampil di Header TV)
+              </label>
+              <input 
+                type="text" 
+                id="input-title" 
+                placeholder="Contoh: Jadwal Kegiatan & Ruang Rapat Hari Ini" 
+                required 
+                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition"
+              />
+            </div>
+
+            <!-- Tipe Konten: Gambar vs Excel -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Tipe Konten
+                </label>
+                <select 
+                  id="input-type" 
+                  class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition"
+                >
+                  <option value="image">🖼️ Gambar / Poster (JPG, PNG, WEBP)</option>
+                  <option value="excel">📊 Tabel Data Excel (.XLSX, .CSV)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Durasi Tampil per Slide / Halaman
+                </label>
+                <div class="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    id="input-duration" 
+                    value="15" 
+                    min="5" 
+                    max="180" 
+                    required 
+                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition font-mono"
+                  />
+                  <span class="text-xs font-bold text-slate-500">Detik</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- AREA UPLOAD DINAMIS -->
+            <!-- Sub-form: Upload Gambar -->
+            <div id="wrapper-file-image" class="space-y-2">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                Pilih File Gambar Poster
+              </label>
+              
+              <!-- Dropzone Visual -->
+              <div 
+                id="dropzone-image" 
+                class="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50/20 transition cursor-pointer relative"
+              >
+                <input 
+                  type="file" 
+                  id="input-file-image" 
+                  accept="image/*" 
+                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div class="flex flex-col items-center gap-2 pointer-events-none">
+                  <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  </div>
+                  <p class="text-xs font-bold text-slate-700">Klik atau geser file gambar ke sini</p>
+                  <p class="text-[11px] text-slate-400">Rasio 16:9 disarankan (1920x1080). Gambar vertikal otomatis dilengkapi latar blur.</p>
+                </div>
+              </div>
+
+              <!-- Thumbnail Preview Gambar -->
+              <div id="image-preview-box" class="hidden mt-2 p-3 border border-slate-200 rounded-2xl bg-slate-50 flex items-center gap-3">
+                <img id="image-preview-thumb" src="" alt="Preview" class="w-16 h-12 object-cover rounded-lg border border-slate-300" />
+                <div class="flex-1 min-w-0">
+                  <span id="image-preview-info" class="text-xs text-slate-700 font-semibold block truncate"></span>
+                  <span class="text-[10px] text-emerald-600 font-bold">Siap diunggah</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-form: Upload Excel -->
+            <div id="wrapper-file-excel" class="hidden space-y-2">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                Pilih File Excel (.xlsx / .csv)
+              </label>
+
+              <!-- Dropzone Visual Excel -->
+              <div 
+                id="dropzone-excel" 
+                class="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-emerald-400 bg-slate-50/50 hover:bg-emerald-50/20 transition cursor-pointer relative"
+              >
+                <input 
+                  type="file" 
+                  id="input-file-excel" 
+                  accept=".xlsx, .xls, .csv" 
+                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div class="flex flex-col items-center gap-2 pointer-events-none">
+                  <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  </div>
+                  <p class="text-xs font-bold text-slate-700">Klik atau geser file spreadsheet Excel / CSV ke sini</p>
+                  <p class="text-[11px] text-slate-400">File diekstrak otomatis. Maksimal 8 baris per layar TV (otomatis multi-halaman jika lebih).</p>
+                </div>
+              </div>
+              
+              <!-- Ringkasan Hasil Baca Excel -->
+              <div id="excel-summary-box" class="hidden p-4 border border-emerald-200 rounded-2xl bg-emerald-50/80 space-y-2.5">
+                <div class="flex items-center justify-between text-xs font-bold text-emerald-900">
+                  <span id="excel-summary-stats">Terbaca: 0 Kolom, 0 Baris</span>
+                  <span id="excel-summary-pages" class="bg-emerald-200/80 text-emerald-800 px-2.5 py-0.5 rounded-full text-[11px]">1 Halaman</span>
+                </div>
+                <div id="excel-table-preview" class="overflow-x-auto text-[11px] max-h-36 bg-white rounded-xl border border-emerald-200 shadow-inner">
+                  <!-- Cuplikan tabel -->
+                </div>
+              </div>
+
+              <!-- Pilihan Gambar Latar Belakang Tabel (Background) -->
+              <div class="p-3.5 border border-slate-200 rounded-2xl bg-slate-50/70 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    🖼️ Gambar Latar Belakang Tabel (Background TV)
+                  </label>
+                  <span class="text-[10px] text-blue-600 font-semibold">Tampilan TV tidak polos</span>
+                </div>
+
+                <div class="space-y-1.5">
+                  <input 
+                    type="file" 
+                    id="input-excel-bg-file" 
+                    accept="image/*" 
+                    class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer bg-white rounded-xl border border-slate-200 p-1"
+                  />
+                  <p class="text-[11px] text-slate-400">Pilih foto/wallpaper sendiri atau gunakan preset siap pakai di bawah:</p>
+                </div>
+
+                <!-- Tombol Preset Cepat Latar Belakang -->
+                <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                  <button type="button" class="btn-excel-bg-preset px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition shadow-xs" data-url="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80">
+                    🥬 Pasar & Bahan Pokok
+                  </button>
+                  <button type="button" class="btn-excel-bg-preset px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition shadow-xs" data-url="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80">
+                    🏢 Kantor & Lobi
+                  </button>
+                  <button type="button" class="btn-excel-bg-preset px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition shadow-xs" data-url="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1920&q=80">
+                    🏙️ Gedung Modern
+                  </button>
+                  <button type="button" class="btn-excel-bg-preset px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition shadow-xs" data-url="https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1920&q=80">
+                    🌌 Gradien Biru Gelap
+                  </button>
+                  <button type="button" id="btn-clear-excel-bg" class="px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition">
+                    ✕ Hapus
+                  </button>
+                </div>
+
+                <input type="hidden" id="input-excel-bg-url" value="" />
+
+                <!-- Preview Background Excel -->
+                <div id="excel-bg-preview-box" class="hidden mt-2 p-2 border border-slate-200 rounded-xl bg-white flex items-center gap-3">
+                  <img id="excel-bg-preview-thumb" src="" alt="Preview Background" class="w-16 h-10 object-cover rounded-lg border border-slate-300" />
+                  <div class="flex-1 min-w-0">
+                    <span id="excel-bg-preview-info" class="text-xs font-semibold text-slate-700 block truncate">Background Terpasang</span>
+                    <span class="text-[10px] text-emerald-600 font-bold">Akan tampil di belakang tabel TV</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rentang Tanggal Tayang -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Mulai Tayang</label>
+                <input 
+                  type="date" 
+                  id="input-start-date" 
+                  required 
+                  class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-sm"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Berakhir Tayang</label>
+                <input 
+                  type="date" 
+                  id="input-end-date" 
+                  required 
+                  class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-sm"
+                />
+              </div>
+            </div>
+
+            <!-- Checkbox Pin Live -->
+            <div class="pt-2 flex items-center justify-between">
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" id="input-pin-now" class="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-400" />
+                <span class="text-xs font-bold text-slate-700">📌 Tayangkan Sekarang (Pin Live Prioritas Eksklusif)</span>
+              </label>
+            </div>
+
+            <!-- Tombol Submit & Preview -->
+            <div class="pt-3 flex flex-wrap items-center gap-3">
+              <button 
+                type="submit" 
+                id="btn-submit-slide" 
+                class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] text-white font-bold py-3 px-6 rounded-xl transition shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 text-sm"
+              >
+                <span>Tayangkan ke TV</span>
+              </button>
+              <button 
+                type="button" 
+                id="btn-preview-modal-trigger" 
+                class="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 active:scale-95"
+              >
+                <span>👁️ Simulasi Layar TV</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- KOLOM 3: KONTROL RUNNING TEXT & INFORMASI CEPAT -->
+        <div class="space-y-6">
+
+          <!-- KARTU PENGATURAN RUNNING TEXT -->
+          <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+            <div class="flex items-center justify-between">
+              <h2 class="text-base font-black text-slate-900 tracking-tight">Teks Berjalan (Marquee)</h2>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            </div>
+            <p class="text-xs text-slate-500 leading-relaxed">
+              Teks ini tampil terus menerus di bagian paling bawah layar TV lobi untuk pengumuman atau ucapan selamat datang.
+            </p>
+
+            <form id="ticker-form" class="space-y-3">
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Nama Kantor / Badge</label>
+                <input 
+                  type="text" 
+                  id="input-office-name" 
+                  placeholder="KANTOR UTAMA" 
+                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Isi Pesan Pengumuman</label>
+                <textarea 
+                  id="input-running-text" 
+                  rows="4" 
+                  placeholder="Selamat Datang di Kantor Kami..." 
+                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white resize-none"
+                ></textarea>
+              </div>
+
+              <button 
+                type="submit" 
+                id="btn-save-ticker" 
+                class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 active:scale-95 shadow"
+              >
+                <span>Perbarui Running Text</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- KARTU INFORMASI FITUR KIOSK -->
+          <div class="bg-gradient-to-br from-slate-900 to-slate-950 p-6 rounded-3xl text-white shadow-xl space-y-3 border border-slate-800/80">
+            <div class="flex items-center gap-2 text-blue-400">
+              <span class="text-lg">💡</span>
+              <h3 class="text-sm font-bold">Tips Pengoperasian Layar TV</h3>
+            </div>
+            <ul class="text-xs text-slate-300 space-y-2 leading-relaxed">
+              <li>• <b>Mode Layar Penuh</b>: Tekan <code class="bg-slate-800 px-1.5 py-0.5 rounded text-blue-300 font-mono">F</code> atau klik layar TV sekali saja.</li>
+              <li>• <b>Pin Live</b>: Kunci layar langsung jika ada tamu VIP datang.</li>
+              <li>• <b>Update Excel Cepat</b>: Tekan tombol <b>↻ Update Excel</b> pada daftar tayangan untuk mengganti file tanpa perlu isi ulang form.</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DAFTAR PLAYLIST SLIDE TV -->
+      <div class="bg-white p-6 sm:p-7 rounded-3xl shadow-sm border border-slate-200/80 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-black text-slate-900 tracking-tight">Daftar Tayangan Playlist TV</h2>
+              <span id="slide-count-badge" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-700">0</span>
+            </div>
+            <p class="text-xs text-slate-500">Urutan tayang otomatis dan status slide aktif</p>
+          </div>
+
+          <!-- Filter Kategori Slide -->
+          <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold overflow-x-auto">
+            <button class="filter-tab px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs" data-filter="all">Semua</button>
+            <button class="filter-tab px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900" data-filter="active">Tayang Aktif</button>
+            <button class="filter-tab px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900" data-filter="pinned">Di-Pin 📌</button>
+            <button class="filter-tab px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900" data-filter="excel">Excel</button>
+            <button class="filter-tab px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900" data-filter="image">Gambar</button>
+          </div>
+        </div>
+
+        <!-- Wadah List Slide -->
+        <div id="slides-list" class="space-y-3">
+          <div class="p-8 text-center text-slate-400 text-sm">
+            Memuat daftar slide...
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- INPUT FILE TERSEMBUNYI UNTUK UPDATE EXCEL CEPAT -->
+  <input type="file" id="quick-excel-input" accept=".xlsx, .xls, .csv" class="hidden" />
+
+  <!-- ================= MODAL 1: LIVE PREVIEW LAYAR TV ================= -->
+  <div id="modal-preview" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="modal-card bg-slate-900 border border-slate-700 rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      <!-- Header Modal -->
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+          <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+          <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+          <h3 class="text-sm font-bold text-white ml-2">Simulasi Rasio 16:9 Layar TV Lobi</h3>
+        </div>
+        <button id="btn-close-preview" class="text-slate-400 hover:text-white text-sm font-bold px-3 py-1 rounded-lg hover:bg-slate-800 transition">✕ Tutup</button>
+      </div>
+
+      <!-- TV Frame 16:9 -->
+      <div class="p-6 bg-slate-950 flex-1 overflow-auto flex items-center justify-center">
+        <div class="w-full aspect-video bg-[#060a12] border border-slate-800 rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xl relative">
+          <!-- TV Header Mini -->
+          <div class="h-10 px-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2 truncate">
+              <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400">● LIVE</span>
+              <span id="preview-tv-title" class="font-bold text-white truncate text-xs">Judul Informasi</span>
+            </div>
+            <div class="font-mono text-white text-xs">09:00</div>
+          </div>
+
+          <!-- TV Stage Mini -->
+          <div id="preview-tv-stage" class="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
+            <span class="text-slate-500 text-xs">Pratinjau konten akan muncul di sini</span>
+          </div>
+
+          <!-- TV Ticker Mini -->
+          <div class="h-6 bg-slate-950 border-t border-slate-800 flex items-center px-3 text-[10px] text-slate-300">
+            <span class="bg-blue-600 text-white font-bold px-1.5 py-0.5 rounded text-[8px] mr-2">INFO</span>
+            <span id="preview-tv-ticker" class="truncate">Selamat Datang di Kantor Kami...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 2: SETUP KONEKSI SUPABASE ================= -->
+  <div id="modal-supabase" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="modal-card bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-black text-slate-900">Pengaturan Koneksi Supabase</h3>
+        <button id="btn-close-supabase-modal" class="text-slate-400 hover:text-slate-700 font-bold text-lg p-1">✕</button>
+      </div>
+      <p class="text-xs text-slate-500 leading-relaxed">
+        Masukkan URL Project dan Anon Public Key dari dashboard Supabase Anda. Konfigurasi ini disimpan di browser Anda (localStorage).
+      </p>
+
+      <form id="form-supabase-config" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Project URL</label>
+          <input 
+            type="url" 
+            id="cfg-supabase-url" 
+            placeholder="https://xyzproject.supabase.co" 
+            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Anon Public Key</label>
+          <textarea 
+            id="cfg-supabase-key" 
+            rows="3" 
+            placeholder="eyJhbGciOiJIUzI1NiIsIn..." 
+            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono resize-none outline-none focus:ring-2 focus:ring-blue-500"
+          ></textarea>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 pt-2">
+          <button 
+            type="button" 
+            id="btn-reset-demo" 
+            class="px-4 py-2.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl transition"
+          >
+            Reset ke Demo Mode
+          </button>
+          <button 
+            type="submit" 
+            class="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow active:scale-95"
+          >
+            Simpan & Hubungkan
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 3: EDIT SLIDE ================= -->
+  <div id="modal-edit-slide" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="modal-card bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+            ✏️
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-slate-900">Edit Informasi Tayangan</h3>
+            <p id="edit-slide-subtitle" class="text-xs text-slate-500">Perbarui judul, durasi, jadwal, atau file</p>
+          </div>
+        </div>
+        <button id="btn-close-edit-modal" class="text-slate-400 hover:text-slate-700 font-bold text-lg p-1.5 rounded-lg hover:bg-slate-100 transition">✕</button>
+      </div>
+
+      <form id="form-edit-slide" class="space-y-4">
+        <input type="hidden" id="edit-slide-id" />
+
+        <!-- Judul Informasi -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            Judul Informasi <span class="text-rose-500">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="edit-input-title" 
+            required 
+            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold transition"
+          />
+        </div>
+
+        <!-- Durasi & Pin -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Durasi Tayang
+            </label>
+            <div class="flex items-center gap-2">
+              <input 
+                type="number" 
+                id="edit-input-duration" 
+                min="5" 
+                max="180" 
+                required 
+                class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition font-mono font-bold"
+              />
+              <span class="text-xs font-bold text-slate-500">Detik</span>
+            </div>
+          </div>
+
+          <div class="flex items-center">
+            <label class="flex items-center gap-2.5 cursor-pointer pt-4 sm:pt-6">
+              <input type="checkbox" id="edit-input-pin" class="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-400" />
+              <span class="text-xs font-bold text-slate-700">📌 Pin Live (Kunci Layar TV)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Rentang Tanggal Tayang -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Mulai Tayang</label>
+            <input 
+              type="date" 
+              id="edit-input-start-date" 
+              required 
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-sm"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Berakhir Tayang</label>
+            <input 
+              type="date" 
+              id="edit-input-end-date" 
+              required 
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white text-sm"
+            />
+          </div>
+        </div>
+
+        <!-- Bagian Ganti File Gambar (khusus tipe image) -->
+        <div id="edit-wrapper-image" class="hidden space-y-2 pt-1 border-t border-slate-100">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">
+            Gambar Saat Ini & Ganti Gambar (Opsional)
+          </label>
+          <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+            <img id="edit-image-current-thumb" src="" alt="Thumbnail" class="w-16 h-12 object-cover rounded-lg border border-slate-300" />
+            <div class="flex-1 min-w-0">
+              <input 
+                type="file" 
+                id="edit-input-file-image" 
+                accept="image/*" 
+                class="w-full text-xs text-slate-600 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+              />
+              <p class="text-[10px] text-slate-400 mt-1">Pilih file baru jika ingin mengganti gambar poster ini.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bagian Ganti File Excel (khusus tipe excel) -->
+        <div id="edit-wrapper-excel" class="hidden space-y-3 pt-1 border-t border-slate-100">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">
+            Data Excel & Pengaturan Tampilan
+          </label>
+          <div class="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-2">
+            <div class="flex items-center justify-between text-xs font-bold text-emerald-900">
+              <span id="edit-excel-info-stats">Data: 0 Baris</span>
+              <span class="text-[11px] text-emerald-700 font-medium">Ganti file Excel (Opsional)</span>
+            </div>
+            <input 
+              type="file" 
+              id="edit-input-file-excel" 
+              accept=".xlsx, .xls, .csv" 
+              class="w-full text-xs text-slate-600 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+            />
+          </div>
+
+          <!-- Background untuk Excel di Modal Edit -->
+          <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                🖼️ Gambar Latar Belakang Tabel (Background TV)
+              </label>
+              <span class="text-[10px] text-blue-600 font-semibold">Tampilan TV tidak polos</span>
+            </div>
+
+            <div class="space-y-1.5">
+              <input 
+                type="file" 
+                id="edit-input-excel-bg-file" 
+                accept="image/*" 
+                class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer bg-white rounded-xl border border-slate-200 p-1"
+              />
+              <p class="text-[11px] text-slate-400">Pilih foto/wallpaper sendiri atau gunakan preset siap pakai:</p>
+            </div>
+
+            <!-- Preset Latar Belakang di Edit Modal -->
+            <div class="flex flex-wrap items-center gap-1.5 pt-1">
+              <button type="button" class="btn-edit-excel-bg-preset px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition shadow-xs" data-url="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80">
+                🥬 Pasar & Bahan Pokok
+              </button>
+              <button type="button" class="btn-edit-excel-bg-preset px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition shadow-xs" data-url="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80">
+                🏢 Kantor & Lobi
+              </button>
+              <button type="button" class="btn-edit-excel-bg-preset px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition shadow-xs" data-url="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1920&q=80">
+                🏙️ Gedung Modern
+              </button>
+              <button type="button" class="btn-edit-excel-bg-preset px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition shadow-xs" data-url="https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1920&q=80">
+                🌌 Gradien Biru Gelap
+              </button>
+              <button type="button" id="btn-edit-clear-excel-bg" class="px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition">
+                ✕ Hapus
+              </button>
+            </div>
+
+            <input type="hidden" id="edit-input-excel-bg-url" value="" />
+
+            <!-- Preview Background Excel di Modal Edit -->
+            <div id="edit-excel-bg-preview-box" class="hidden mt-2 p-2 border border-slate-200 rounded-xl bg-white flex items-center gap-3">
+              <img id="edit-excel-bg-preview-thumb" src="" alt="Preview Background" class="w-16 h-10 object-cover rounded-lg border border-slate-300" />
+              <div class="flex-1 min-w-0">
+                <span id="edit-excel-bg-preview-info" class="text-xs font-semibold text-slate-700 block truncate">Background Terpasang</span>
+                <span class="text-[10px] text-emerald-600 font-bold">Akan tampil di belakang tabel TV</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi -->
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button 
+            type="button" 
+            id="btn-cancel-edit" 
+            class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+          >
+            Batal
+          </button>
+          <button 
+            type="submit" 
+            id="btn-save-edit" 
+            class="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow shadow-blue-500/20 active:scale-95 flex items-center gap-1.5"
+          >
+            <span>💾 Simpan Perubahan</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
