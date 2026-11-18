@@ -295,28 +295,45 @@ loginForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Masuk Cepat Mode Demo
-btnDemoLogin.addEventListener('click', () => {
-  currentUser = { email: 'admin-demo@kantor.com' };
-  sessionStorage.setItem('TV_SIGNAGE_DEMO_USER', currentUser.email);
-  isDemoSession = true;
-  showToast('Masuk Mode Demo Cepat', 'info');
-  showDashboard();
-});
-
 // Logout
-btnLogout.addEventListener('click', async () => {
-  if (confirm('Keluar dari panel admin TV?')) {
-    sessionStorage.removeItem('TV_SIGNAGE_DEMO_USER');
-    if (isSupabaseConfigured() && supabaseClient) {
-      await supabaseClient.auth.signOut();
+if (btnLogout) {
+  btnLogout.addEventListener('click', async () => {
+    if (confirm('Keluar dari panel admin TV?')) {
+      try {
+        sessionStorage.removeItem('TV_SIGNAGE_DEMO_USER');
+        sessionStorage.clear();
+
+        // Bersihkan token autentikasi Supabase dari storage agar tidak auto-login kembali
+        try {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith('sb-') || k.includes('supabase.auth.token'))) {
+              localStorage.removeItem(k);
+            }
+          }
+        } catch (storageErr) {}
+
+        if (isSupabaseConfigured() && supabaseClient) {
+          await supabaseClient.auth.signOut().catch(err => {
+            console.warn('Supabase signOut error, tetap melanjutkan proses logout:', err);
+          });
+        }
+      } catch (e) {
+        console.warn('Logout catch error:', e);
+      } finally {
+        currentUser = null;
+        isDemoSession = false;
+        showLogin();
+
+        // Bersihkan isian kata sandi di form login
+        const passInput = document.getElementById('login-password');
+        if (passInput) passInput.value = '';
+
+        showToast('Berhasil keluar dari sesi admin', 'info');
+      }
     }
-    currentUser = null;
-    isDemoSession = false;
-    showLogin();
-    showToast('Telah keluar dari sesi admin', 'info');
-  }
-});
+  });
+}
 
 // ------------------------------------------------------------
 // 2. PARSER & INPUT DINAMIS FORM KONTEN (GAMBAR vs EXCEL)
