@@ -390,7 +390,7 @@ function updateTypeVisibility() {
 inputType.addEventListener('change', updateTypeVisibility);
 
 // Helper Pratinjau Tautan Link Media
-function renderLinkPreview(url, stageEl, badgeEl) {
+function renderLinkPreview(url, stageEl, badgeEl, targetDurationInput = null) {
   if (!url || !stageEl) return;
   const media = (typeof parseMediaUrl === 'function') ? parseMediaUrl(url) : null;
   if (!media) {
@@ -407,17 +407,36 @@ function renderLinkPreview(url, stageEl, badgeEl) {
     stageEl.innerHTML = `
       <iframe src="${media.embedUrl}" class="w-full h-full border-0 pointer-events-auto" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     `;
+  } else if (media.type === 'instagram') {
+    stageEl.innerHTML = `
+      <iframe src="${media.embedUrl}" class="w-full h-full border-0 bg-white" frameborder="0" scrolling="no" allowtransparency="true" allow="autoplay; encrypted-media"></iframe>
+    `;
+  } else if (media.type === 'tiktok') {
+    stageEl.innerHTML = `
+      <iframe src="${media.embedUrl}" class="w-full h-full border-0 bg-black" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+    `;
   } else if (media.type === 'video') {
     stageEl.innerHTML = `
       <video src="${encodeURI(media.embedUrl)}" class="w-full h-full object-contain" controls autoplay muted loop playsinline></video>
     `;
+    const vid = stageEl.querySelector('video');
+    if (vid) {
+      vid.onloadedmetadata = () => {
+        const sec = Math.round(vid.duration);
+        const durationField = targetDurationInput || inputDuration;
+        if (sec > 0 && durationField) {
+          durationField.value = sec;
+          showToast(`Durasi video terdeteksi otomatis: ${sec} detik (akan diputar full di TV)`, 'info');
+        }
+      };
+    }
   } else if (media.type === 'image') {
     stageEl.innerHTML = `
       <img src="${encodeURI(media.embedUrl)}" class="w-full h-full object-contain" onerror="this.src='https://images.unsplash.com/photo-1594322436404-5a0526db4d13?auto=format&fit=crop&w=1200&q=80'" />
     `;
   } else {
     stageEl.innerHTML = `
-      <iframe src="${media.embedUrl}" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
+      <iframe src="${media.embedUrl}" class="w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     `;
   }
 }
@@ -430,7 +449,7 @@ if (btnTestLink) {
       return;
     }
     if (linkPreviewBox) linkPreviewBox.classList.remove('hidden');
-    renderLinkPreview(url, linkPreviewStage, linkPreviewTypeBadge);
+    renderLinkPreview(url, linkPreviewStage, linkPreviewTypeBadge, inputDuration);
     showToast('Pratinjau tautan media berhasil dimuat', 'info');
   });
 }
@@ -440,7 +459,7 @@ if (inputMediaUrl) {
     const url = inputMediaUrl.value.trim();
     if (url) {
       if (linkPreviewBox) linkPreviewBox.classList.remove('hidden');
-      renderLinkPreview(url, linkPreviewStage, linkPreviewTypeBadge);
+      renderLinkPreview(url, linkPreviewStage, linkPreviewTypeBadge, inputDuration);
     }
   });
 }
@@ -1626,6 +1645,18 @@ function renderModalPreviewLink(url) {
         <iframe src="${media.embedUrl}" class="w-full h-full border-0 pointer-events-auto" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
       </div>
     `;
+  } else if (media.type === 'instagram') {
+    previewTvStage.innerHTML = `
+      <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950 p-2">
+        <iframe src="${media.embedUrl}" class="w-full max-w-[420px] h-[86%] rounded-2xl border border-slate-700/80 bg-white shadow-2xl" frameborder="0" scrolling="no" allowtransparency="true" allow="autoplay; encrypted-media"></iframe>
+      </div>
+    `;
+  } else if (media.type === 'tiktok') {
+    previewTvStage.innerHTML = `
+      <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950 p-2">
+        <iframe src="${media.embedUrl}" class="w-full max-w-[360px] h-[86%] rounded-2xl border border-slate-700/80 bg-black shadow-2xl" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+      </div>
+    `;
   } else if (media.type === 'video') {
     renderModalPreviewVideo(media.embedUrl);
   } else if (media.type === 'image') {
@@ -1633,7 +1664,7 @@ function renderModalPreviewLink(url) {
   } else {
     previewTvStage.innerHTML = `
       <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-900">
-        <iframe src="${media.embedUrl}" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin"></iframe>
+        <iframe src="${media.embedUrl}" class="w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
       </div>
     `;
   }
@@ -1776,7 +1807,7 @@ window.openEditModal = (id) => {
     editWrapperExcel.classList.add('hidden');
     if (editInputMediaUrl) {
       editInputMediaUrl.value = slide.image_url || '';
-      renderLinkPreview(slide.image_url, editLinkPreviewBox);
+      renderLinkPreview(slide.image_url, editLinkPreviewBox, null, editInputDuration);
     }
   } else {
     if (subtitle) subtitle.textContent = `Slide Data Excel (${slide.excel_data?.rows?.length || 0} baris data)`;
@@ -2004,7 +2035,7 @@ if (btnEditTestLink) {
       showToast('Masukkan link terlebih dahulu', 'warning');
       return;
     }
-    renderLinkPreview(url, editLinkPreviewBox);
+    renderLinkPreview(url, editLinkPreviewBox, null, editInputDuration);
     showToast('Pratinjau link diperbarui', 'info');
   });
 }
@@ -2012,7 +2043,7 @@ if (btnEditTestLink) {
 if (editInputMediaUrl) {
   editInputMediaUrl.addEventListener('change', () => {
     const url = editInputMediaUrl.value.trim();
-    if (url) renderLinkPreview(url, editLinkPreviewBox);
+    if (url) renderLinkPreview(url, editLinkPreviewBox, null, editInputDuration);
   });
 }
 

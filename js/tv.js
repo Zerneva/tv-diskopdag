@@ -267,6 +267,84 @@ function evaluatePlayback(forceReset = false) {
   }
 }
 
+// Helper Pemutaran Video Full & Otomatisasi Durasi Tayang
+function setupTvVideoPlayer(videoEl, fallbackDuration, isPinnedMode, metaPrefix, updatedTime) {
+  if (!videoEl) return;
+
+  let timerStarted = false;
+  let targetDuration = fallbackDuration || 20;
+
+  const startSyncedCountdown = (seconds) => {
+    if (timerStarted) return;
+    timerStarted = true;
+    targetDuration = seconds;
+    if (metaEl) {
+      metaEl.textContent = `${metaPrefix} • Durasi ${seconds}s (Putar Full) • Update ${updatedTime}`;
+    }
+    if (!isPinnedMode) {
+      startCountdown(seconds, () => {
+        // Jika countdown selesai tapi video masih memutar dan belum selesai, jangan potong paksa
+        if (videoEl && !videoEl.paused && !videoEl.ended && (videoEl.duration - videoEl.currentTime > 1.2)) {
+          return;
+        }
+        currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+        currentExcelPage = 0;
+        evaluatePlayback(true);
+      });
+    } else {
+      if (progressBar) progressBar.style.width = '100%';
+    }
+  };
+
+  const onMetaLoaded = () => {
+    const rawDur = Math.ceil(videoEl.duration);
+    if (rawDur && isFinite(rawDur) && rawDur > 0) {
+      startSyncedCountdown(rawDur);
+    }
+  };
+
+  videoEl.addEventListener('loadedmetadata', onMetaLoaded);
+  videoEl.addEventListener('durationchange', onMetaLoaded);
+
+  // Saat video selesai diputar sampai akhir -> langsung loncat ke slide berikutnya!
+  videoEl.addEventListener('ended', () => {
+    if (!isPinnedMode && allSlides.length > 1) {
+      clearCountdown();
+      currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+      currentExcelPage = 0;
+      evaluatePlayback(true);
+    }
+  });
+
+  videoEl.play().catch(e => console.warn('Autoplay video notice:', e));
+
+  // Fallback pengaman jika metadata terlambat termuat
+  setTimeout(() => {
+    if (!timerStarted) {
+      const dur = (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0)
+        ? Math.ceil(videoEl.duration)
+        : targetDuration;
+      startSyncedCountdown(dur);
+    }
+  }, 1200);
+}
+
+// Listener Pesan YouTube PostMessage (Mendeteksi otomatis video selesai berakhir)
+window.addEventListener('message', (e) => {
+  try {
+    const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+    if (data && data.event === 'onStateChange' && data.info === 0) {
+      // YouTube selesai (State 0 = Ended) -> ganti slide otomatis
+      if (allSlides && allSlides.length > 1) {
+        clearCountdown();
+        currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+        currentExcelPage = 0;
+        evaluatePlayback(true);
+      }
+    }
+  } catch (err) {}
+});
+
 // ------------------------------------------------------------
 // 6. RENDER KONTEN SLIDE (GAMBAR ATAU TABEL EXCEL)
 // ------------------------------------------------------------
@@ -327,10 +405,6 @@ function renderSlide(slide, isPinnedMode) {
   else if (slide.type === 'video') {
     const safeVideoUrl = slide.image_url ? encodeURI(slide.image_url) : '';
 
-    if (metaEl) {
-      metaEl.textContent = `Video • Durasi ${slide.duration}s • Update ${updatedTime}`;
-    }
-
     stage.innerHTML = `
       <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950">
         <!-- Ambient Blur Video Background -->
@@ -355,29 +429,9 @@ function renderSlide(slide, isPinnedMode) {
     `;
 
     const videoEl = document.getElementById('tv-main-video');
-    if (videoEl) {
-      videoEl.play().catch(e => console.warn('Autoplay video notice:', e));
-      videoEl.onended = () => {
-        if (!isPinnedMode && allSlides.length > 1) {
-          clearCountdown();
-          currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
-          currentExcelPage = 0;
-          evaluatePlayback(true);
-        }
-      };
-    }
-
-    if (!isPinnedMode) {
-      startCountdown(slide.duration || 20, () => {
-        currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
-        currentExcelPage = 0;
-        evaluatePlayback(true);
-      });
-    } else {
-      if (progressBar) progressBar.style.width = '100%';
-    }
+    setupTvVideoPlayer(videoEl, slide.duration, isPinnedMode, 'Video', updatedTime);
   }
-  // --- KASUS D: SLIDE TAUTAN LINK MEDIA (YOUTUBE / VIDEO / FOTO / WEB) ---
+  // --- KASUS D: SLIDE TAUTAN LINK MEDIA (YOUTUBE / INSTAGRAM / TIKTOK / VIDEO / FOTO / WEB) ---
   else if (slide.type === 'link') {
     const media = (typeof parseMediaUrl === 'function') 
       ? parseMediaUrl(slide.image_url) 
@@ -385,7 +439,11 @@ function renderSlide(slide, isPinnedMode) {
 
     const typeLabel = media?.type === 'youtube' 
       ? 'YouTube' 
-      : (media?.type === 'video' ? 'Video Online' : (media?.type === 'image' ? 'Foto Online' : 'Tautan Web'));
+      : (media?.type === 'instagram' 
+          ? 'Instagram' 
+          : (media?.type === 'tiktok' 
+              ? 'TikTok' 
+              : (media?.type === 'video' ? 'Video Online' : (media?.type === 'image' ? 'Foto Online' : 'Tautan Web'))));
 
     if (metaEl) {
       metaEl.textContent = `${typeLabel} • Slide ${currentSlideIndex + 1} dari ${allSlides.length} • Update ${updatedTime}`;
@@ -408,6 +466,60 @@ function renderSlide(slide, isPinnedMode) {
           ></iframe>
         </div>
       `;
+      if (!isPinnedMode) {
+        startCountdown(slide.duration || 30, () => {
+          currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+          currentExcelPage = 0;
+          evaluatePlayback(true);
+        });
+      } else {
+        if (progressBar) progressBar.style.width = '100%';
+      }
+    } else if (media.type === 'instagram') {
+      stage.innerHTML = `
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950 p-2 sm:p-4">
+          <!-- Background Glow Halus -->
+          <div class="absolute inset-0 bg-gradient-to-tr from-amber-600/15 via-rose-600/15 to-purple-600/15 blur-3xl pointer-events-none"></div>
+          <iframe 
+            src="${media.embedUrl}" 
+            class="relative z-10 w-full max-w-[460px] h-[88vh] rounded-2xl shadow-2xl border border-slate-700/80 bg-white"
+            frameborder="0" 
+            scrolling="no" 
+            allowtransparency="true"
+            allow="autoplay; encrypted-media"
+          ></iframe>
+        </div>
+      `;
+      if (!isPinnedMode) {
+        startCountdown(slide.duration || 25, () => {
+          currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+          currentExcelPage = 0;
+          evaluatePlayback(true);
+        });
+      } else {
+        if (progressBar) progressBar.style.width = '100%';
+      }
+    } else if (media.type === 'tiktok') {
+      stage.innerHTML = `
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950 p-2 sm:p-4">
+          <iframe 
+            src="${media.embedUrl}" 
+            class="relative z-10 w-full max-w-[400px] h-[88vh] rounded-2xl shadow-2xl border border-slate-700/80 bg-black"
+            frameborder="0" 
+            allowfullscreen
+            allow="autoplay; encrypted-media"
+          ></iframe>
+        </div>
+      `;
+      if (!isPinnedMode) {
+        startCountdown(slide.duration || 25, () => {
+          currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+          currentExcelPage = 0;
+          evaluatePlayback(true);
+        });
+      } else {
+        if (progressBar) progressBar.style.width = '100%';
+      }
     } else if (media.type === 'video') {
       const safeVideoUrl = encodeURI(media.embedUrl);
       stage.innerHTML = `
@@ -433,17 +545,7 @@ function renderSlide(slide, isPinnedMode) {
         </div>
       `;
       const videoEl = document.getElementById('tv-link-video');
-      if (videoEl) {
-        videoEl.play().catch(e => console.warn('Autoplay video notice:', e));
-        videoEl.onended = () => {
-          if (!isPinnedMode && allSlides.length > 1) {
-            clearCountdown();
-            currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
-            currentExcelPage = 0;
-            evaluatePlayback(true);
-          }
-        };
-      }
+      setupTvVideoPlayer(videoEl, slide.duration, isPinnedMode, 'Video Online', updatedTime);
     } else if (media.type === 'image') {
       const safeImageUrl = encodeURI(media.embedUrl);
       const safeTitle = escapeHtml(slide.title);
@@ -467,6 +569,15 @@ function renderSlide(slide, isPinnedMode) {
           </div>
         </div>
       `;
+      if (!isPinnedMode) {
+        startCountdown(slide.duration || 15, () => {
+          currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+          currentExcelPage = 0;
+          evaluatePlayback(true);
+        });
+      } else {
+        if (progressBar) progressBar.style.width = '100%';
+      }
     } else {
       // media.type === 'web'
       stage.innerHTML = `
@@ -474,10 +585,20 @@ function renderSlide(slide, isPinnedMode) {
           <iframe 
             src="${media.embedUrl}" 
             class="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen
           ></iframe>
         </div>
       `;
+      if (!isPinnedMode) {
+        startCountdown(slide.duration || 20, () => {
+          currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
+          currentExcelPage = 0;
+          evaluatePlayback(true);
+        });
+      } else {
+        if (progressBar) progressBar.style.width = '100%';
+      }
     }
 
     if (!isPinnedMode) {

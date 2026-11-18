@@ -169,7 +169,35 @@ function parseMediaUrl(rawUrl) {
     };
   }
 
-  // 2. Google Drive Share Image
+  // 2. Instagram (Post, Reel, Reels, IGTV)
+  const igMatch = url.match(/(?:instagram\.com|instagr\.am)\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_-]+)/i);
+  if (igMatch && igMatch[1]) {
+    const shortcode = igMatch[1];
+    return {
+      type: 'instagram',
+      originalUrl: url,
+      shortcode: shortcode,
+      embedUrl: `https://www.instagram.com/p/${shortcode}/embed/`,
+      thumbnailUrl: '',
+      titleHint: 'Instagram Post / Reel'
+    };
+  }
+
+  // 3. TikTok (Video & Embed)
+  const ttMatch = url.match(/tiktok\.com\/(?:@[^\/]+\/video\/|v\/|embed\/v2\/)(\d+)/i);
+  if (ttMatch && ttMatch[1]) {
+    const ttId = ttMatch[1];
+    return {
+      type: 'tiktok',
+      originalUrl: url,
+      videoId: ttId,
+      embedUrl: `https://www.tiktok.com/embed/v2/${ttId}`,
+      thumbnailUrl: '',
+      titleHint: 'TikTok Video'
+    };
+  }
+
+  // 4. Google Drive Share Image
   const gdriveMatch = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/i);
   if (gdriveMatch && gdriveMatch[1]) {
     const gId = gdriveMatch[1];
@@ -183,7 +211,7 @@ function parseMediaUrl(rawUrl) {
     };
   }
 
-  // 3. Direct Video File (.mp4, .webm, .ogg, .mov, .m4v)
+  // 5. Direct Video File (.mp4, .webm, .ogg, .mov, .m4v)
   const cleanPath = url.split('?')[0].toLowerCase();
   if (/\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(cleanPath)) {
     return {
@@ -195,7 +223,7 @@ function parseMediaUrl(rawUrl) {
     };
   }
 
-  // 4. Direct Image File (.jpg, .jpeg, .png, .webp, .gif, .svg, .avif) atau CDN gambar
+  // 6. Direct Image File (.jpg, .jpeg, .png, .webp, .gif, .svg, .avif) atau CDN gambar
   if (/\.(jpg|jpeg|png|webp|gif|svg|avif)$/i.test(cleanPath) || url.includes('images.unsplash.com') || url.includes('i.imgur.com')) {
     return {
       type: 'image',
@@ -206,7 +234,7 @@ function parseMediaUrl(rawUrl) {
     };
   }
 
-  // 5. Default Fallback: Webpage / Iframe Kiosk
+  // 7. Default Fallback: Webpage / Iframe Kiosk
   return {
     type: 'web',
     originalUrl: url,
