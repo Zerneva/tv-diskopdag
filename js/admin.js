@@ -7,7 +7,6 @@ const loginSection = document.getElementById('login-section');
 const dashboardSection = document.getElementById('dashboard-section');
 const loginForm = document.getElementById('login-form');
 const loginAlert = document.getElementById('login-alert');
-const btnDemoLogin = document.getElementById('btn-demo-login');
 const btnLogout = document.getElementById('btn-logout');
 const userEmailLabel = document.getElementById('user-email-label');
 const connBadge = document.getElementById('conn-badge');
@@ -132,6 +131,22 @@ const formSupabaseConfig = document.getElementById('form-supabase-config');
 const cfgSupabaseUrl = document.getElementById('cfg-supabase-url');
 const cfgSupabaseKey = document.getElementById('cfg-supabase-key');
 const btnResetDemo = document.getElementById('btn-reset-demo');
+
+// Modal Helper (Mencegah bug modal tembus klik di PC)
+function openModal(el) {
+  if (!el) return;
+  el.style.display = 'flex';
+  el.classList.remove('hidden');
+}
+
+function closeModal(el) {
+  if (!el) return;
+  el.style.display = 'none';
+  el.classList.add('hidden');
+}
+
+// Pastikan semua modal tertutup rapat saat inisialisasi awal
+[modalPreview, modalSupabase, modalEditSlide].forEach(closeModal);
 
 // State User
 let currentUser = null;
@@ -1393,7 +1408,7 @@ btnPreviewModalTrigger.addEventListener('click', () => {
     }
   }
 
-  modalPreview.classList.remove('hidden');
+  openModal(modalPreview);
 });
 
 window.previewSpecificSlide = (id) => {
@@ -1409,7 +1424,7 @@ window.previewSpecificSlide = (id) => {
     renderModalPreviewExcel(slide.excel_data, slide.image_url);
   }
 
-  modalPreview.classList.remove('hidden');
+  openModal(modalPreview);
 };
 
 function renderModalPreviewImage(url) {
@@ -1448,11 +1463,11 @@ function renderModalPreviewExcel(excel, bgUrl = null) {
 
 // Tutup preview via tombol & klik backdrop
 btnClosePreview.addEventListener('click', () => {
-  modalPreview.classList.add('hidden');
+  closeModal(modalPreview);
 });
 modalPreview.addEventListener('click', (e) => {
   if (e.target === modalPreview) {
-    modalPreview.classList.add('hidden');
+    closeModal(modalPreview);
   }
 });
 
@@ -1462,18 +1477,18 @@ modalPreview.addEventListener('click', (e) => {
 function openSupabaseSetupModal() {
   cfgSupabaseUrl.value = localStorage.getItem('TV_SIGNAGE_SUPABASE_URL') || '';
   cfgSupabaseKey.value = localStorage.getItem('TV_SIGNAGE_SUPABASE_KEY') || '';
-  modalSupabase.classList.remove('hidden');
+  openModal(modalSupabase);
 }
 
 if (btnOpenSupabaseSetup) btnOpenSupabaseSetup.addEventListener('click', openSupabaseSetupModal);
 if (btnSettingsModal) btnSettingsModal.addEventListener('click', openSupabaseSetupModal);
 
 btnCloseSupabaseModal.addEventListener('click', () => {
-  modalSupabase.classList.add('hidden');
+  closeModal(modalSupabase);
 });
 modalSupabase.addEventListener('click', (e) => {
   if (e.target === modalSupabase) {
-    modalSupabase.classList.add('hidden');
+    closeModal(modalSupabase);
   }
 });
 
@@ -1542,18 +1557,18 @@ window.openEditModal = (id) => {
     }
   }
 
-  modalEditSlide.classList.remove('hidden');
+  openModal(modalEditSlide);
 };
 
 if (btnCloseEditModal) {
-  btnCloseEditModal.addEventListener('click', () => modalEditSlide.classList.add('hidden'));
+  btnCloseEditModal.addEventListener('click', () => closeModal(modalEditSlide));
 }
 if (btnCancelEdit) {
-  btnCancelEdit.addEventListener('click', () => modalEditSlide.classList.add('hidden'));
+  btnCancelEdit.addEventListener('click', () => closeModal(modalEditSlide));
 }
 if (modalEditSlide) {
   modalEditSlide.addEventListener('click', (e) => {
-    if (e.target === modalEditSlide) modalEditSlide.classList.add('hidden');
+    if (e.target === modalEditSlide) closeModal(modalEditSlide);
   });
 }
 
@@ -1692,7 +1707,7 @@ formEditSlide.addEventListener('submit', async (e) => {
       await saveLocalSlidesSafely(localSlides);
     }
 
-    modalEditSlide.classList.add('hidden');
+    closeModal(modalEditSlide);
     showToast('Perubahan slide berhasil disimpan dan langsung tayang!', 'success');
     notifyTvUpdate('slides');
     loadAdminSlides();
