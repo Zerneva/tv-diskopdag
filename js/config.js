@@ -4,8 +4,8 @@
 
 // Anda dapat mengisi kredensial langsung di bawah ini,
 // atau mengisinya lewat menu "Pengaturan Supabase" di dalam panel admin.
-const DEFAULT_SUPABASE_URL = ''; // Contoh: 'https://scofhdbblirryetxtscul.supabase.co'
-const DEFAULT_SUPABASE_ANON_KEY = ''; // Contoh: 'eyJhbGciOiJIUzI1NiIsIn...'
+const DEFAULT_SUPABASE_URL = 'https://scofhdbblrryetxtscul.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_PwYbbCGzeRRdO9DcgHKgTw_kliYAJUe';
 
 // Helper sanitasi URL Supabase: Otomatis memperbaiki jika user menyalin link dashboard
 function formatSupabaseUrl(rawUrl) {
