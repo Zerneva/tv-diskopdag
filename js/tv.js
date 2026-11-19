@@ -35,14 +35,14 @@ let remainingSeconds = 0;
 const ROWS_PER_PAGE = 8; // Jumlah baris Excel maksimal per layar
 
 // State BGM
-let bgmYtPlayer = null;
-let bgmYtReady = false;
+let bgmCurrentTitle = '';
 let isBgmUserMuted = false;
 let isBgmEnabled = false;
 let bgmCurrentType = 'file'; // 'file', 'link', 'youtube'
 let bgmCurrentUrl = '';
 let bgmCurrentVolume = 50;
 let bgmUserInteracted = false;
+let bgmUnlockerAttached = false;
 
 // ------------------------------------------------------------
 // Helper Sanitasi HTML (Cegah XSS & Karakter Rusak)
@@ -175,37 +175,83 @@ function applySettings(settings) {
 // BGM — MUSIK LATAR LOBI
 // ------------------------------------------------------------
 
+// Ekstrak Video ID YouTube dari berbagai variasi URL
+function extractYoutubeVideoId(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtu.be')) {
+      return u.pathname.slice(1).split('?')[0].split('&')[0];
+    }
+    const v = u.searchParams.get('v');
+    if (v) return v;
+  } catch (e) {}
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : '';
+}
+
+// Kirim perintah API langsung ke iframe YouTube via postMessage
+function sendYtCommand(func, args = []) {
+  const iframe = document.getElementById('tv-bgm-yt-iframe');
+  if (iframe && iframe.contentWindow) {
+    try {
+      iframe.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: func,
+        args: args
+      }), '*');
+    } catch (e) {}
+  }
+}
+
+function updateBgmHeaderButton(isPlaying, isUserMuted = false) {
+  if (!btnBgmIndicator) return;
+  if (!isBgmEnabled || !bgmCurrentUrl) {
+    btnBgmIndicator.classList.add('hidden');
+    btnBgmIndicator.classList.remove('flex');
+    return;
+  }
+
+  btnBgmIndicator.classList.remove('hidden');
+  btnBgmIndicator.classList.add('flex');
+
+  if (isUserMuted) {
+    btnBgmIndicator.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-500/20 border border-slate-500/40 text-slate-300 text-[11px] font-semibold tracking-wide hover:bg-slate-500/30 transition cursor-pointer';
+    if (bgmIndicatorLabel) bgmIndicatorLabel.textContent = 'Musik (Muted)';
+  } else if (!bgmUserInteracted && !isPlaying) {
+    btnBgmIndicator.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/25 border border-amber-400 text-amber-200 text-[11px] font-bold tracking-wide hover:bg-amber-500/35 transition cursor-pointer animate-pulse';
+    if (bgmIndicatorLabel) bgmIndicatorLabel.textContent = '🔊 Klik untuk Bunyikan Musik';
+  } else {
+    btnBgmIndicator.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-200 text-[11px] font-semibold tracking-wide hover:bg-purple-500/30 transition cursor-pointer';
+    if (bgmIndicatorLabel) bgmIndicatorLabel.textContent = `🎵 ${bgmCurrentTitle || 'Musik Lobi'} (${bgmCurrentVolume}%)`;
+  }
+}
+
 function applyBgmSettings(settings) {
   const enabled = !!settings.bgm_enabled;
   const type = settings.bgm_type || 'file';
   const url = settings.bgm_url || '';
   const vol = typeof settings.bgm_volume === 'number' ? settings.bgm_volume : 50;
-  const title = settings.bgm_title || 'Musik Latar Lobi';
+  const title = settings.bgm_title || (type === 'youtube' ? 'Musik YouTube' : 'Musik Latar Lobi');
 
   isBgmEnabled = enabled;
   bgmCurrentType = type;
   bgmCurrentVolume = vol;
-
-  // Update label indikator header
-  if (btnBgmIndicator) {
-    if (enabled && url) {
-      btnBgmIndicator.classList.remove('hidden');
-      btnBgmIndicator.classList.add('flex');
-      if (bgmIndicatorLabel) bgmIndicatorLabel.textContent = title;
-    } else {
-      btnBgmIndicator.classList.add('hidden');
-      btnBgmIndicator.classList.remove('flex');
-    }
-  }
+  bgmCurrentTitle = title;
 
   if (!enabled || !url) {
     stopBgm();
+    updateBgmHeaderButton(false);
     return;
   }
 
-  // Jika URL sama dengan yang sudah berjalan, hanya update volume
-  if (url === bgmCurrentUrl && bgmAudioEl && !bgmAudioEl.paused && type !== 'youtube') {
+  // Pasang unlocker global agar setiap klik pertama langsung mengaktifkan audio
+  attachGlobalBgmUnlocker();
+
+  // Jika URL sama persis dengan yang sedang berjalan, hanya perbarui volume
+  if (url === bgmCurrentUrl) {
     setBgmVolume(vol);
+    updateBgmHeaderButton(bgmUserInteracted);
     return;
   }
 
@@ -214,7 +260,6 @@ function applyBgmSettings(settings) {
   if (type === 'youtube') {
     startBgmYoutube(url, vol);
   } else {
-    // 'file' atau 'link' langsung
     startBgmAudio(url, vol);
   }
 }
@@ -228,113 +273,71 @@ function startBgmAudio(url, vol) {
 
   const tryPlay = () => {
     bgmAudioEl.play().then(() => {
+      bgmUserInteracted = true;
       hideBgmUnmutePrompt();
+      updateBgmHeaderButton(true);
     }).catch(() => {
-      // Browser blokir autoplay — tampilkan prompt klik
       showBgmUnmutePrompt();
+      updateBgmHeaderButton(false);
     });
   };
 
-  if (bgmUserInteracted) {
-    tryPlay();
-  } else {
-    // Tunggu interaksi pengguna
-    showBgmUnmutePrompt();
-    document.addEventListener('click', function onFirstClick() {
-      bgmUserInteracted = true;
-      tryPlay();
-      hideBgmUnmutePrompt();
-    }, { once: true });
-  }
+  tryPlay();
 }
 
 function startBgmYoutube(url, vol) {
-  if (!bgmYtWrap) return;
   stopBgmAudio();
-
-  // Ambil Video ID dari URL YouTube
-  let videoId = '';
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes('youtu.be')) {
-      videoId = u.pathname.slice(1);
-    } else {
-      videoId = u.searchParams.get('v') || '';
-    }
-    // Handle playlist
-    const listId = u.searchParams.get('list') || '';
-    if (!videoId && listId) videoId = ''; // playlist hanya
-  } catch (e) {
-    console.warn('URL YouTube tidak valid:', url);
+  const videoId = extractYoutubeVideoId(url);
+  if (!videoId) {
+    console.warn('Video ID YouTube tidak ditemukan dari URL:', url);
     return;
   }
 
-  if (!videoId && !url.includes('list=')) {
-    console.warn('Video ID YouTube tidak ditemukan:', url);
-    return;
+  const wrap = document.getElementById('tv-bgm-yt-wrap');
+  if (!wrap) return;
+
+  wrap.classList.remove('hidden');
+
+  let iframe = document.getElementById('tv-bgm-yt-iframe');
+  const targetSrc = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&playsinline=1&modestbranding=1`;
+
+  if (!iframe || iframe.getAttribute('data-video-id') !== videoId) {
+    wrap.innerHTML = `
+      <iframe
+        id="tv-bgm-yt-iframe"
+        data-video-id="${videoId}"
+        src="${targetSrc}"
+        allow="autoplay; encrypted-media"
+        style="position:fixed;bottom:0;right:0;width:240px;height:180px;opacity:0.001;pointer-events:none;z-index:-10;"
+      ></iframe>
+    `;
+    iframe = document.getElementById('tv-bgm-yt-iframe');
   }
 
-  bgmYtWrap.classList.remove('hidden');
-
-  const initPlayer = () => {
-    if (bgmYtPlayer) {
-      try { bgmYtPlayer.destroy(); } catch(e) {}
-      bgmYtPlayer = null;
-    }
-    bgmYtPlayer = new YT.Player('tv-bgm-yt-player', {
-      height: '1',
-      width: '1',
-      videoId: videoId || undefined,
-      playerVars: {
-        autoplay: 1,
-        loop: 1,
-        playlist: videoId || undefined,
-        controls: 0,
-        disablekb: 1,
-        fs: 0,
-        mute: 0,
-        origin: window.location.origin
-      },
-      events: {
-        onReady: (event) => {
-          bgmYtReady = true;
-          event.target.setVolume(vol);
-          event.target.playVideo();
-          hideBgmUnmutePrompt();
-        },
-        onError: (event) => {
-          console.warn('YT BGM error:', event.data);
-        },
-        onStateChange: (event) => {
-          // State -1 = unstarted, 0 = ended, 1 = playing, 2 = paused, 3 = buffering
-          if (event.data === YT.PlayerState.ENDED && bgmYtPlayer) {
-            try { bgmYtPlayer.playVideo(); } catch(e) {}
-          }
-        }
+  // Kirim perintah unMute secara bertahap saat iframe YouTube selesai menginisialisasi API
+  [500, 1200, 2000, 3200].forEach((delay) => {
+    setTimeout(() => {
+      if (!isBgmUserMuted) {
+        sendYtCommand('unMute');
+        sendYtCommand('setVolume', [vol]);
+        sendYtCommand('playVideo');
       }
-    });
-  };
+    }, delay);
+  });
 
-  if (typeof YT !== 'undefined' && YT.Player) {
-    initPlayer();
+  if (!bgmUserInteracted) {
+    showBgmUnmutePrompt();
+    updateBgmHeaderButton(false);
   } else {
-    // Load YouTube IFrame API jika belum ada
-    if (!document.getElementById('yt-iframe-api-script')) {
-      const tag = document.createElement('script');
-      tag.id = 'yt-iframe-api-script';
-      tag.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(tag);
-    }
-    window.onYouTubeIframeAPIReady = initPlayer;
+    updateBgmHeaderButton(true);
   }
 }
 
 function setBgmVolume(vol) {
-  const fraction = Math.max(0, Math.min(100, vol)) / 100;
+  bgmCurrentVolume = Math.max(0, Math.min(100, vol));
+  const fraction = bgmCurrentVolume / 100;
   if (bgmAudioEl) bgmAudioEl.volume = fraction;
-  if (bgmYtPlayer && bgmYtReady) {
-    try { bgmYtPlayer.setVolume(vol); } catch(e) {}
-  }
+  sendYtCommand('setVolume', [bgmCurrentVolume]);
 }
 
 function stopBgmAudio() {
@@ -345,86 +348,137 @@ function stopBgmAudio() {
 }
 
 function stopBgmYoutube() {
-  if (bgmYtPlayer) {
-    try { bgmYtPlayer.stopVideo(); bgmYtPlayer.destroy(); } catch(e) {}
-    bgmYtPlayer = null;
-    bgmYtReady = false;
-  }
-  if (bgmYtWrap) bgmYtWrap.classList.add('hidden');
-  // Reset div player
-  const playerDiv = document.getElementById('tv-bgm-yt-player');
-  if (playerDiv && bgmYtWrap) {
-    bgmYtWrap.innerHTML = '<div id="tv-bgm-yt-player"></div>';
-  }
+  const wrap = document.getElementById('tv-bgm-yt-wrap');
+  if (wrap) wrap.innerHTML = '';
 }
 
 function stopBgm() {
   stopBgmAudio();
   stopBgmYoutube();
   bgmCurrentUrl = '';
+  hideBgmUnmutePrompt();
 }
 
-// Smart ducking: panggil ini setiap kali slide berubah
+// Smart ducking: panggil setiap kali slide berganti
 function duckOrPauseBgm(slideHasAudio) {
   if (!isBgmEnabled) return;
   if (isBgmUserMuted) return;
 
   if (slideHasAudio) {
-    // Slide video — turunkan BGM ke mute sementara
-    if (bgmAudioEl && !bgmAudioEl.paused) {
-      bgmAudioEl.volume = 0;
-    }
-    if (bgmYtPlayer && bgmYtReady) {
-      try { bgmYtPlayer.setVolume(0); } catch(e) {}
-    }
+    // Slide video lobi — mute BGM sementara agar audio video jernih
+    if (bgmAudioEl) bgmAudioEl.volume = 0;
+    sendYtCommand('mute');
   } else {
-    // Slide non-video — kembalikan volume normal
+    // Slide foto/excel — kembalikan volume musik normal
     const fraction = bgmCurrentVolume / 100;
-    if (bgmAudioEl) bgmAudioEl.volume = fraction;
-    if (bgmYtPlayer && bgmYtReady) {
-      try { bgmYtPlayer.setVolume(bgmCurrentVolume); } catch(e) {}
+    if (bgmAudioEl) {
+      bgmAudioEl.volume = fraction;
+      if (bgmAudioEl.src && bgmAudioEl.paused && bgmUserInteracted) {
+        bgmAudioEl.play().catch(() => {});
+      }
     }
+    sendYtCommand('unMute');
+    sendYtCommand('setVolume', [bgmCurrentVolume]);
+    sendYtCommand('playVideo');
   }
 }
 
 function showBgmUnmutePrompt() {
-  if (!bgmUnmutePrompt) return;
+  if (!bgmUnmutePrompt || bgmUserInteracted) return;
   bgmUnmutePrompt.style.display = 'flex';
   bgmUnmutePrompt.classList.remove('hidden');
 }
+
 function hideBgmUnmutePrompt() {
   if (!bgmUnmutePrompt) return;
   bgmUnmutePrompt.style.display = 'none';
   bgmUnmutePrompt.classList.add('hidden');
 }
 
+// Global unlocker: Klik / Sentuh / Tombol apa saja langsung mengaktifkan suara
+function attachGlobalBgmUnlocker() {
+  if (bgmUnlockerAttached) return;
+  bgmUnlockerAttached = true;
+
+  const unlockAudio = () => {
+    if (bgmUserInteracted) return;
+    bgmUserInteracted = true;
+    hideBgmUnmutePrompt();
+
+    if (isBgmEnabled && !isBgmUserMuted) {
+      if (bgmCurrentType === 'youtube') {
+        sendYtCommand('unMute');
+        sendYtCommand('setVolume', [bgmCurrentVolume]);
+        sendYtCommand('playVideo');
+      } else if (bgmAudioEl && bgmAudioEl.src) {
+        bgmAudioEl.volume = bgmCurrentVolume / 100;
+        bgmAudioEl.play().catch(() => {});
+      }
+      updateBgmHeaderButton(true);
+    }
+  };
+
+  window.addEventListener('click', unlockAudio, { passive: true });
+  window.addEventListener('keydown', unlockAudio, { passive: true });
+  window.addEventListener('touchstart', unlockAudio, { passive: true });
+}
+
 // Tombol indikator BGM di header: toggle mute/unmute
 if (btnBgmIndicator) {
   btnBgmIndicator.addEventListener('click', (e) => {
-    e.stopPropagation(); // Jangan trigger fullscreen
+    e.stopPropagation(); // Jangan trigger layar penuh
+
+    if (!bgmUserInteracted) {
+      bgmUserInteracted = true;
+      hideBgmUnmutePrompt();
+      isBgmUserMuted = false;
+      if (bgmCurrentType === 'youtube') {
+        sendYtCommand('unMute');
+        sendYtCommand('setVolume', [bgmCurrentVolume]);
+        sendYtCommand('playVideo');
+      } else if (bgmAudioEl && bgmAudioEl.src) {
+        bgmAudioEl.volume = bgmCurrentVolume / 100;
+        bgmAudioEl.play().catch(() => {});
+      }
+      updateBgmHeaderButton(true);
+      return;
+    }
+
     isBgmUserMuted = !isBgmUserMuted;
     if (isBgmUserMuted) {
       if (bgmAudioEl) bgmAudioEl.volume = 0;
-      if (bgmYtPlayer && bgmYtReady) { try { bgmYtPlayer.setVolume(0); } catch(err) {} }
-      btnBgmIndicator.classList.remove('bg-purple-500/15', 'border-purple-500/30', 'text-purple-300');
-      btnBgmIndicator.classList.add('bg-slate-500/15', 'border-slate-500/30', 'text-slate-400');
-      if (bgmIndicatorLabel) bgmIndicatorLabel.textContent = '(Mute)';
+      sendYtCommand('mute');
+      updateBgmHeaderButton(false, true);
     } else {
       setBgmVolume(bgmCurrentVolume);
-      btnBgmIndicator.classList.remove('bg-slate-500/15', 'border-slate-500/30', 'text-slate-400');
-      btnBgmIndicator.classList.add('bg-purple-500/15', 'border-purple-500/30', 'text-purple-300');
-      if (bgmIndicatorLabel) bgmIndicatorLabel.textContent = 'Musik Lobi';
+      sendYtCommand('unMute');
+      sendYtCommand('setVolume', [bgmCurrentVolume]);
+      sendYtCommand('playVideo');
+      if (bgmAudioEl && bgmAudioEl.src && bgmAudioEl.paused) {
+        bgmAudioEl.play().catch(() => {});
+      }
+      updateBgmHeaderButton(true);
     }
   });
 }
 
 // Klik prompt unmute
 if (bgmUnmutePrompt) {
-  bgmUnmutePrompt.addEventListener('click', () => {
+  bgmUnmutePrompt.addEventListener('click', (e) => {
+    e.stopPropagation();
     bgmUserInteracted = true;
     hideBgmUnmutePrompt();
-    if (bgmAudioEl && bgmAudioEl.src && bgmAudioEl.paused) {
-      bgmAudioEl.play().catch(() => {});
+    if (isBgmEnabled) {
+      isBgmUserMuted = false;
+      if (bgmCurrentType === 'youtube') {
+        sendYtCommand('unMute');
+        sendYtCommand('setVolume', [bgmCurrentVolume]);
+        sendYtCommand('playVideo');
+      } else if (bgmAudioEl && bgmAudioEl.src) {
+        bgmAudioEl.volume = bgmCurrentVolume / 100;
+        bgmAudioEl.play().catch(() => {});
+      }
+      updateBgmHeaderButton(true);
     }
   });
 }
@@ -620,12 +674,33 @@ function setupTvVideoPlayer(videoEl, fallbackDuration, isPinnedMode, metaPrefix,
   }, 1200);
 }
 
-// Listener Pesan YouTube PostMessage (Mendeteksi otomatis video selesai berakhir)
+// Listener Pesan YouTube PostMessage (Mendeteksi otomatis BGM loop & video slide selesai)
 window.addEventListener('message', (e) => {
   try {
     const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-    if (data && data.event === 'onStateChange' && data.info === 0) {
-      // YouTube selesai (State 0 = Ended) -> ganti slide otomatis
+    if (!data) return;
+
+    const bgmIframe = document.getElementById('tv-bgm-yt-iframe');
+    const isFromBgm = bgmIframe && (e.source === bgmIframe.contentWindow);
+
+    if (isFromBgm) {
+      // Pesan khusus Musik Latar YouTube
+      if (data.event === 'onStateChange') {
+        if (data.info === 0) {
+          // Lagu selesai -> Loop otomatis kembali ke awal
+          sendYtCommand('playVideo');
+        } else if (data.info === 1) {
+          // Sedang berputar aktif
+          bgmUserInteracted = true;
+          hideBgmUnmutePrompt();
+          updateBgmHeaderButton(true);
+        }
+      }
+      return;
+    }
+
+    // Pesan dari Slide Video YouTube di panggung utama
+    if (data.event === 'onStateChange' && data.info === 0) {
       if (allSlides && allSlides.length > 1) {
         clearCountdown();
         currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
@@ -1206,6 +1281,7 @@ function toggleFullScreen() {
 // ------------------------------------------------------------
 // 10. INISIALISASI SAAT HALAMAN DIBUKA
 // ------------------------------------------------------------
+attachGlobalBgmUnlocker();
 fetchSettings();
 fetchSlides();
 setupRealtimeListeners();

@@ -444,25 +444,22 @@
 
     <!-- ================= ELEMEN MUSIK LATAR (BGM) ================= -->
     <!-- Audio HTML5 untuk file MP3/WAV/link langsung -->
-    <audio id="tv-bgm-audio" loop preload="auto" class="hidden" style="display:none"></audio>
+    <audio id="tv-bgm-audio" loop preload="auto" class="hidden"></audio>
 
-    <!-- YouTube invisible player untuk BGM via YouTube -->
-    <div id="tv-bgm-yt-wrap" class="hidden pointer-events-none" style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;">
-      <div id="tv-bgm-yt-player"></div>
-    </div>
+    <!-- YouTube player container (ditempatkan di DOM dengan ukuran cukup agar tidak di-throttle oleh YouTube) -->
+    <div id="tv-bgm-yt-wrap" class="fixed -bottom-48 -right-48 w-48 h-48 opacity-0 pointer-events-none z-0 overflow-hidden"></div>
 
-    <!-- Prompt Unmute: Muncul saat browser blokir autoplay -->
+    <!-- Prompt Unmute: Muncul saat browser memblokir autoplay bersuara sebelum ada klik pengguna -->
     <div
       id="bgm-unmute-prompt"
-      class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-obsidian-900/95 backdrop-blur-md border border-purple-500/40 text-slate-200 text-sm px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 cursor-pointer select-none"
-      style="display:none"
+      class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 text-white text-xs sm:text-sm font-semibold px-6 py-3 rounded-2xl shadow-2xl border border-white/20 flex items-center gap-3 cursor-pointer select-none animate-pulse hover:scale-105 transition"
     >
       <span class="text-xl">🔊</span>
-      <span>Klik di mana saja untuk mengaktifkan musik latar lobi</span>
+      <span>Klik di mana saja pada layar untuk mengaktifkan musik lobi</span>
     </div>
 
     <!-- Scripts -->
-    <script src="js/config.js?v=20261119_v4"></script>
-    <script src="js/tv.js?v=20261119_v4"></script>
+    <script src="js/config.js?v=20261119_v5"></script>
+    <script src="js/tv.js?v=20261119_v5"></script>
   </body>
 </html>
