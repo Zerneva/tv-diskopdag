@@ -1,215 +1,421 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TV Informasi Lobi - Digital Signage</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase JS CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    /* Styling khusus layar TV Kiosk */
-    * {
-      box-sizing: border-box;
-      user-select: none;
-    }
-    body {
-      cursor: none;
-      overflow: hidden;
-      background-color: #060a12;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-    body.show-cursor {
-      cursor: default;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TV Informasi Lobi — Digital Signage</title>
 
-    /* Ambient Background Glow */
-    body::before {
-      content: '';
-      position: fixed;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(ellipse at 20% 50%, rgba(56, 100, 220, 0.06) 0%, transparent 50%),
-                  radial-gradient(ellipse at 80% 20%, rgba(79, 70, 229, 0.04) 0%, transparent 50%),
-                  radial-gradient(ellipse at 50% 80%, rgba(14, 165, 233, 0.03) 0%, transparent 50%);
-      pointer-events: none;
-      z-index: 0;
-    }
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
-    /* Smooth Crossfade Slide Transitions */
-    .slide-enter {
-      animation: slideEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-    @keyframes slideEnter {
-      from { opacity: 0; transform: scale(0.98) translateY(6px); }
-      to   { opacity: 1; transform: scale(1) translateY(0); }
-    }
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+              mono: [
+                "JetBrains Mono",
+                "ui-monospace",
+                "SFMono-Regular",
+                "monospace",
+              ],
+            },
+            colors: {
+              obsidian: {
+                950: "#07090D",
+                900: "#0C1017",
+                850: "#111722",
+                800: "#161E2E",
+              },
+            },
+          },
+        },
+      };
+    </script>
 
-    /* Animasi Teks Berjalan (Marquee) */
-    .marquee-container {
-      overflow: hidden;
-      white-space: nowrap;
-      position: relative;
-      mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
-      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
-    }
-    .marquee-content {
-      display: inline-block;
-      white-space: nowrap;
-      animation: marqueeScroll 30s linear infinite;
-    }
-    .marquee-container:hover .marquee-content {
-      animation-play-state: paused;
-    }
-    @keyframes marqueeScroll {
-      0% { transform: translateX(100vw); }
-      100% { transform: translateX(-100%); }
-    }
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    /* Progress Bar Glow */
-    #progress-bar {
-      box-shadow: 0 0 12px rgba(59, 130, 246, 0.5), 0 0 4px rgba(59, 130, 246, 0.3);
-    }
+    <style>
+      /* Styling khusus layar TV Kiosk */
+      * {
+        box-sizing: border-box;
+        user-select: none;
+      }
 
-    /* Pulsing ring for pinned badge */
-    @keyframes ringPulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-      50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
-    }
-    .ring-pulse {
-      animation: ringPulse 2s ease-in-out infinite;
-    }
+      body {
+        cursor: none;
+        overflow: hidden;
+        background-color: #07090d;
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
 
-    /* Table row entrance */
-    .table-row-enter {
-      animation: rowSlideIn 0.35s ease-out both;
-    }
-    @keyframes rowSlideIn {
-      from { opacity: 0; transform: translateX(-8px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
+      body.show-cursor {
+        cursor: default;
+      }
 
-    /* Loading spinner */
-    .loader-ring {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      border: 4px solid rgba(59,130,246,0.15);
-      border-top-color: #3b82f6;
-      animation: loaderSpin 0.9s linear infinite;
-    }
-    @keyframes loaderSpin {
-      to { transform: rotate(360deg); }
-    }
+      /* Ambient lighting halus ala layar studio profesional */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(
+            ellipse 70% 50% at 50% 0%,
+            rgba(148, 163, 184, 0.06) 0%,
+            transparent 70%
+          ),
+          radial-gradient(
+            ellipse 60% 45% at 50% 100%,
+            rgba(30, 58, 138, 0.07) 0%,
+            transparent 75%
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
 
-    /* Pause overlay */
-    .pause-overlay {
-      animation: pauseFadeIn 0.3s ease-out;
-    }
-    @keyframes pauseFadeIn {
-      from { opacity: 0; transform: scale(0.8); }
-      to { opacity: 1; transform: scale(1); }
-    }
-  </style>
-</head>
-<body class="text-white h-screen w-screen flex flex-col justify-between">
+      /* Transisi slide halus (Broadcast Crossfade) */
+      .slide-enter {
+        animation: slideEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      @keyframes slideEnter {
+        from {
+          opacity: 0;
+          transform: scale(0.992) translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
 
-  <!-- ================= HEADER TV ================= -->
-  <header id="tv-header" class="h-20 px-8 bg-gradient-to-r from-slate-900/98 via-slate-900/95 to-slate-900/98 border-b border-slate-700/40 flex items-center justify-between z-30 shadow-lg shadow-black/20 backdrop-blur-sm relative">
-    <!-- Subtle bottom glow line -->
-    <div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"></div>
+      /* Animasi Teks Berjalan (Marquee) */
+      .marquee-container {
+        overflow: hidden;
+        white-space: nowrap;
+        position: relative;
+        mask-image: linear-gradient(
+          to right,
+          transparent 0%,
+          black 3%,
+          black 97%,
+          transparent 100%
+        );
+        -webkit-mask-image: linear-gradient(
+          to right,
+          transparent 0%,
+          black 3%,
+          black 97%,
+          transparent 100%
+        );
+      }
+      .marquee-content {
+        display: inline-block;
+        white-space: nowrap;
+        animation: marqueeScroll 32s linear infinite;
+      }
+      .marquee-container:hover .marquee-content {
+        animation-play-state: paused;
+      }
+      @keyframes marqueeScroll {
+        0% {
+          transform: translateX(100vw);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
 
-    <!-- Kiri: Badge Status & Judul Slide -->
-    <div class="flex items-center gap-5 min-w-0 flex-1 mr-6">
-      <span id="live-badge" class="px-4 py-1.5 rounded-full text-xs font-extrabold tracking-wider uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center gap-2 whitespace-nowrap shadow-sm backdrop-blur-sm">
-        <span class="relative flex h-2.5 w-2.5">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+      /* Progress Bar presisi */
+      #progress-bar {
+        box-shadow: 0 0 10px rgba(226, 232, 240, 0.25);
+      }
+
+      /* Pulsing ring untuk status Pin Live */
+      @keyframes ringPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35);
+        }
+        50% {
+          box-shadow: 0 0 0 5px rgba(245, 158, 11, 0);
+        }
+      }
+      .ring-pulse {
+        animation: ringPulse 2.2s ease-in-out infinite;
+      }
+
+      /* Animasi masuk baris tabel Excel */
+      .table-row-enter {
+        animation: rowSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      @keyframes rowSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Loader profesional yang tenang */
+      .loader-ring {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 2.5px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #e2e8f0;
+        animation: loaderSpin 0.85s linear infinite;
+      }
+      @keyframes loaderSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Animasi overlay jeda */
+      .pause-overlay {
+        animation: pauseFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes pauseFadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.94);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="text-slate-100 h-screen w-screen flex flex-col justify-between antialiased"
+  >
+    <!-- ================= HEADER TV (BROADCAST TOP BAR) ================= -->
+    <header
+      id="tv-header"
+      class="h-[84px] px-8 bg-obsidian-900/95 border-b border-white/[0.08] flex items-center justify-between gap-6 z-30 backdrop-blur-md relative"
+    >
+      <!-- Aksen garis atas sangat tipis -->
+      <div
+        class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-slate-800 via-slate-400/40 to-slate-800"
+      ></div>
+
+      <!-- Kiri: Status Siaran & Judul Informasi -->
+      <div class="flex items-center gap-5 min-w-0 flex-1">
+        <span
+          id="live-badge"
+          class="px-3.5 py-1.5 rounded-md text-[11px] font-mono font-semibold tracking-[0.14em] uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-2.5 whitespace-nowrap shrink-0"
+        >
+          <span class="relative flex h-2 w-2">
+            <span
+              class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"
+            ></span>
+            <span
+              class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"
+            ></span>
+          </span>
+          <span>LIVE PLAYLIST</span>
         </span>
-        <span>LIVE PLAYLIST</span>
+
+        <div class="h-7 w-px bg-white/10 shrink-0 hidden sm:block"></div>
+
+        <h1
+          id="slide-title"
+          class="text-xl lg:text-[26px] font-semibold tracking-[-0.02em] text-white truncate"
+        >
+          Memuat Informasi Lobi...
+        </h1>
+      </div>
+
+      <!-- Kanan: Meta Halaman, Status Koneksi & Jam Digital -->
+      <div class="flex items-center gap-6 shrink-0">
+        <!-- Info Halaman Slide -->
+        <div
+          id="slide-meta"
+          class="text-xs lg:text-sm font-mono font-medium text-slate-300 bg-white/[0.04] px-3.5 py-1.5 rounded-md border border-white/[0.08] tracking-wide"
+        >
+          Halaman 1 dari 1
+        </div>
+
+        <!-- Indikator Jaringan Real-Time -->
+        <div
+          id="network-status"
+          title="Status Jaringan"
+          class="flex items-center gap-2 text-slate-400"
+        >
+          <span
+            id="network-dot"
+            class="w-2 h-2 rounded-full bg-emerald-500"
+            title="Terhubung"
+          ></span>
+          <span
+            id="network-label"
+            class="hidden md:inline font-mono text-[11px] font-medium uppercase tracking-[0.12em]"
+            >ONLINE</span
+          >
+        </div>
+
+        <!-- Pembatas Vertikal -->
+        <div class="h-9 w-px bg-white/10"></div>
+
+        <!-- Jam & Tanggal Digital -->
+        <div class="text-right min-w-[140px]">
+          <div
+            id="clock"
+            class="text-2xl lg:text-[28px] font-mono font-semibold text-white tracking-wider tabular-nums leading-none"
+          >
+            00:00:00
+          </div>
+          <div
+            id="date-label"
+            class="text-[11px] lg:text-xs text-slate-400 font-medium tracking-wide mt-1.5 capitalize"
+          >
+            Memuat...
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= PANGGUNG KONTEN UTAMA ================= -->
+    <main
+      id="tv-stage"
+      class="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden p-0 z-10 bg-obsidian-950"
+    >
+      <!-- State Loading Awal -->
+      <div class="text-center flex flex-col items-center gap-5 px-6">
+        <div class="loader-ring"></div>
+        <div class="space-y-1.5">
+          <p
+            class="text-lg lg:text-xl font-semibold tracking-tight text-slate-100"
+          >
+            Menghubungkan ke Sistem Informasi
+          </p>
+          <p class="text-xs lg:text-sm text-slate-500 font-normal">
+            Menyiapkan jadwal tayangan aktif untuk layar lobi
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ================= RUNNING TEXT / BROADCAST TICKER ================= -->
+    <footer
+      id="tv-ticker"
+      class="h-[52px] bg-obsidian-900/98 border-t border-white/[0.08] flex items-center px-6 z-20 overflow-hidden relative"
+    >
+      <!-- Label Pengumuman / Kantor (High-Contrast Corporate Badge) -->
+      <div
+        class="flex items-center gap-2.5 bg-slate-100 text-obsidian-950 text-[11px] font-bold px-3.5 py-1.5 rounded uppercase tracking-[0.14em] mr-5 shrink-0 z-10"
+      >
+        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+        <span id="ticker-badge-text">INFORMASI</span>
+      </div>
+
+      <!-- Pemisah Vertikal -->
+      <div class="h-5 w-px bg-white/10 mr-5 shrink-0"></div>
+
+      <!-- Teks Berjalan -->
+      <div class="marquee-container flex-1">
+        <div
+          id="marquee-text"
+          class="marquee-content text-base lg:text-[17px] font-normal tracking-[0.01em] text-slate-200"
+        >
+          Selamat Datang di Kantor Kami • Harap melapor ke meja resepsionis
+          untuk pendataan tamu dan pengambilan kartu akses • Terima kasih atas
+          kerjasamanya.
+        </div>
+      </div>
+    </footer>
+
+    <!-- ================= PROGRESS BAR HITUNG MUNDUR SLIDE ================= -->
+    <div class="w-full h-[3px] bg-white/[0.06] z-30 relative">
+      <div
+        id="progress-bar"
+        class="h-full bg-gradient-to-r from-slate-400 via-slate-200 to-white transition-all duration-100 ease-linear"
+        style="width: 0%"
+      ></div>
+    </div>
+
+    <!-- ================= PETUNJUK TEKNIS TERSEMBUNYI ================= -->
+    <div
+      id="quick-hint"
+      class="fixed bottom-[68px] right-8 bg-obsidian-900/90 backdrop-blur-md border border-white/10 text-slate-300 text-xs px-4 py-2.5 rounded-lg pointer-events-none transition-opacity duration-1000 z-50 shadow-2xl flex items-center gap-4"
+    >
+      <span class="flex items-center gap-1.5">
+        <kbd
+          class="px-1.5 py-0.5 font-mono text-[10px] bg-white/10 border border-white/15 rounded text-white"
+          >F</kbd
+        >
+        <span class="text-slate-400">atau Klik: Layar Penuh</span>
       </span>
-      <h1 id="slide-title" class="text-2xl lg:text-3xl font-extrabold tracking-tight text-white truncate drop-shadow-sm">
-        Memuat Informasi Lobi...
-      </h1>
-    </div>
-
-    <!-- Kanan: Meta Slide, Indikator Sinyal & Jam Digital -->
-    <div class="flex items-center gap-6 text-slate-300 flex-shrink-0">
-      <div id="slide-meta" class="text-sm lg:text-base font-medium text-slate-400 bg-slate-800/50 px-3.5 py-1 rounded-lg border border-slate-700/40 backdrop-blur-sm">
-        Halaman 1 dari 1
-      </div>
-
-      <!-- Indikator Jaringan Real-Time -->
-      <div id="network-status" title="Status Jaringan" class="flex items-center gap-1.5 text-xs text-slate-400">
-        <span id="network-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" title="Terhubung"></span>
-        <span id="network-label" class="hidden md:inline font-mono text-[11px] uppercase tracking-wider">ONLINE</span>
-      </div>
-
-      <!-- Jam & Tanggal Digital -->
-      <div class="text-right border-l border-slate-700/40 pl-6">
-        <div id="clock" class="text-2xl lg:text-3xl font-mono font-black text-white tracking-wide tabular-nums">00:00:00</div>
-        <div id="date-label" class="text-xs text-blue-300/70 font-medium capitalize">Memuat...</div>
-      </div>
-    </div>
-  </header>
-
-  <!-- ================= PANGGUNG KONTEN UTAMA ================= -->
-  <main id="tv-stage" class="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden p-0 z-10">
-    <div class="text-center text-slate-400 flex flex-col items-center gap-4">
-      <div class="loader-ring"></div>
-      <p class="text-2xl font-bold text-slate-200">Menghubungkan ke server informasi...</p>
-      <p class="text-sm text-slate-500">Layar akan segera menampilkan tayangan aktif</p>
-    </div>
-  </main>
-
-  <!-- ================= RUNNING TEXT / MARQUEE TICKER ================= -->
-  <footer id="tv-ticker" class="h-12 bg-gradient-to-r from-slate-950/98 via-slate-950/95 to-slate-950/98 border-t border-slate-700/30 flex items-center px-4 z-20 overflow-hidden relative">
-    <!-- Subtle top glow line -->
-    <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"></div>
-
-    <!-- Label Pengumuman / Kantor -->
-    <div class="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-black px-3.5 py-1.5 rounded-md uppercase tracking-wider shadow-lg shadow-blue-600/20 mr-4 flex-shrink-0 z-10">
-      <span class="relative flex h-2 w-2">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-50"></span>
-        <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+      <span class="text-white/15">|</span>
+      <span class="flex items-center gap-1.5">
+        <kbd
+          class="px-1.5 py-0.5 font-mono text-[10px] bg-white/10 border border-white/15 rounded text-white"
+          >←</kbd
+        >
+        <kbd
+          class="px-1.5 py-0.5 font-mono text-[10px] bg-white/10 border border-white/15 rounded text-white"
+          >→</kbd
+        >
+        <span class="text-slate-400">Ganti Slide</span>
       </span>
-      <span id="ticker-badge-text">INFORMASI</span>
+      <span class="text-white/15">|</span>
+      <span class="flex items-center gap-1.5">
+        <kbd
+          class="px-1.5 py-0.5 font-mono text-[10px] bg-white/10 border border-white/15 rounded text-white"
+          >Spasi</kbd
+        >
+        <span class="text-slate-400">Jeda</span>
+      </span>
     </div>
 
-    <!-- Teks Berjalan -->
-    <div class="marquee-container flex-1">
-      <div id="marquee-text" class="marquee-content text-base lg:text-lg font-medium text-slate-200/90">
-        Selamat Datang di Kantor Kami • Harap melapor ke meja resepsionis untuk pendataan tamu dan pengambilan kartu akses • Terima kasih atas kerjasamanya.
+    <!-- ================= OVERLAY INDIKATOR JEDA ================= -->
+    <div
+      id="pause-indicator"
+      class="fixed inset-0 flex items-center justify-center z-40 pointer-events-none hidden"
+    >
+      <div
+        class="pause-overlay bg-obsidian-900/90 backdrop-blur-md px-7 py-5 rounded-xl border border-white/15 flex items-center gap-4 shadow-2xl"
+      >
+        <div
+          class="w-11 h-11 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center text-white"
+        >
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <rect x="6" y="4" width="4" height="16" rx="1" />
+            <rect x="14" y="4" width="4" height="16" rx="1" />
+          </svg>
+        </div>
+        <div>
+          <p
+            class="text-base font-semibold tracking-wider uppercase text-white"
+          >
+            Tayangan Dijeda
+          </p>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Tekan tombol Spasi untuk melanjutkan siaran
+          </p>
+        </div>
       </div>
     </div>
-  </footer>
 
-  <!-- ================= PROGRESS BAR HITUNG MUNDUR SLIDE ================= -->
-  <div class="w-full h-1.5 bg-slate-950 z-30 relative">
-    <div id="progress-bar" class="h-full bg-gradient-to-r from-blue-600 via-sky-400 to-indigo-500 transition-all duration-100 ease-linear" style="width: 0%"></div>
-  </div>
-
-  <!-- Petunjuk Teknis Tersembunyi -->
-  <div id="quick-hint" class="fixed bottom-16 right-8 bg-black/80 backdrop-blur-md border border-slate-700/60 text-slate-300 text-xs px-4 py-2.5 rounded-xl pointer-events-none transition-opacity duration-1000 z-50 shadow-2xl flex items-center gap-3">
-    <span>💡 <b>F</b> atau <b>Klik Layar</b>: Layar Penuh | <b>← / →</b>: Ganti Slide | <b>Spasi</b>: Jeda</span>
-  </div>
-
-  <!-- Pause Indicator (hidden by default) -->
-  <div id="pause-indicator" class="fixed inset-0 flex items-center justify-center z-40 pointer-events-none hidden">
-    <div class="pause-overlay bg-black/60 backdrop-blur-sm px-8 py-5 rounded-2xl border border-slate-600/30 flex items-center gap-4 shadow-2xl">
-      <svg class="w-10 h-10 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-      <div>
-        <p class="text-xl font-bold text-white">JEDA</p>
-        <p class="text-xs text-slate-400">Tekan Spasi untuk lanjutkan</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Scripts -->
-  <script src="js/config.js?v=20261118_v7"></script>
-  <script src="js/tv.js?v=20261118_v7"></script>
-</body>
+    <!-- Scripts -->
+    <script src="js/config.js?v=20261118_v7"></script>
+    <script src="js/tv.js?v=20261118_v7"></script>
+  </body>
 </html>
