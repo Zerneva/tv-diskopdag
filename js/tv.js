@@ -206,8 +206,8 @@ function evaluatePlayback(forceReset = false) {
     if (titleEl) titleEl.textContent = 'Belum Ada Informasi Tayang Hari Ini';
     if (metaEl) metaEl.textContent = 'Standby';
     if (badgeEl) {
-      badgeEl.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span><span>STANDBY</span>`;
-      badgeEl.className = 'px-4 py-1.5 rounded-full text-xs font-extrabold uppercase bg-slate-800/80 text-slate-400 border border-slate-700/60 shadow-sm';
+      badgeEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span><span>STANDBY</span>`;
+      badgeEl.className = 'px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-slate-800/80 text-slate-400 border border-slate-700/60 shadow-sm inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0 leading-none';
     }
     stage.innerHTML = `
       <div class="text-center text-slate-400 flex flex-col items-center gap-4 max-w-lg p-10 rounded-3xl bg-slate-900/60 border border-slate-800/80 shadow-2xl backdrop-blur-md slide-enter">
@@ -234,13 +234,13 @@ function evaluatePlayback(forceReset = false) {
   if (pinnedSlide) {
     if (badgeEl) {
       badgeEl.innerHTML = `
-        <span class="relative flex h-2.5 w-2.5">
+        <span class="relative flex h-2 w-2 shrink-0">
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
         </span>
-        <span>📌 PINNED LIVE</span>
+        <span>PINNED LIVE 📌</span>
       `;
-      badgeEl.className = 'px-4 py-1.5 rounded-full text-xs font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/20 ring-pulse backdrop-blur-sm';
+      badgeEl.className = 'px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/20 ring-pulse backdrop-blur-sm inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0 leading-none';
     }
     renderSlide(pinnedSlide, true);
     return;
@@ -249,13 +249,13 @@ function evaluatePlayback(forceReset = false) {
   // Mode Normal Playlist Otomatis
   if (badgeEl) {
     badgeEl.innerHTML = `
-      <span class="relative flex h-2.5 w-2.5">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+      <span class="relative flex h-2 w-2 shrink-0">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
       </span>
       <span>LIVE PLAYLIST</span>
     `;
-    badgeEl.className = 'px-4 py-1.5 rounded-full text-xs font-extrabold uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 shadow-sm backdrop-blur-sm';
+    badgeEl.className = 'px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm backdrop-blur-sm inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0 leading-none';
   }
 
   if (currentSlideIndex >= allSlides.length) {
