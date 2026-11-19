@@ -401,11 +401,37 @@ function attachGlobalBgmUnlocker() {
   bgmUnlockerAttached = true;
 
   const unlockAudio = () => {
-    if (bgmUserInteracted) return;
     bgmUserInteracted = true;
     hideBgmUnmutePrompt();
 
-    if (isBgmEnabled && !isBgmUserMuted) {
+    // 1. Unmute video slide yang sedang tayang di layar
+    const stageVideo = document.getElementById('tv-main-video') || document.getElementById('tv-link-video');
+    if (stageVideo) {
+      stageVideo.muted = false;
+      stageVideo.volume = 1.0;
+      stageVideo.play().catch(() => {});
+    }
+
+    const stageIframe = document.getElementById('tv-stage-yt-iframe');
+    if (stageIframe && stageIframe.contentWindow) {
+      try {
+        stageIframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+        stageIframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+      } catch (e) {}
+    }
+
+    // 2. Unmute musik latar (BGM) jika slide saat ini BUKAN video
+    const currentSlide = allSlides && allSlides[currentSlideIndex];
+    const isVideoSlide = currentSlide && (
+      currentSlide.type === 'video' ||
+      (currentSlide.type === 'link' && currentSlide.image_url && (
+        currentSlide.image_url.includes('youtu') ||
+        currentSlide.image_url.includes('tiktok') ||
+        currentSlide.image_url.match(/\.(mp4|webm|ogg|mov)(\?|$)/i)
+      ))
+    );
+
+    if (isBgmEnabled && !isBgmUserMuted && !isVideoSlide) {
       if (bgmCurrentType === 'youtube') {
         sendYtCommand('unMute');
         sendYtCommand('setVolume', [bgmCurrentVolume]);
@@ -661,7 +687,20 @@ function setupTvVideoPlayer(videoEl, fallbackDuration, isPinnedMode, metaPrefix,
     }
   });
 
-  videoEl.play().catch(e => console.warn('Autoplay video notice:', e));
+  // Manajemen audio video slide
+  if (bgmUserInteracted) {
+    videoEl.muted = false;
+    videoEl.volume = 1.0;
+    videoEl.play().catch(() => {
+      videoEl.muted = true;
+      videoEl.play().catch(() => {});
+      showBgmUnmutePrompt();
+    });
+  } else {
+    videoEl.muted = true;
+    videoEl.play().catch(() => {});
+    showBgmUnmutePrompt();
+  }
 
   // Fallback pengaman jika metadata terlambat termuat
   setTimeout(() => {
@@ -797,7 +836,7 @@ function renderSlide(slide, isPinnedMode) {
             id="tv-main-video"
             src="${safeVideoUrl}" 
             class="max-w-[94vw] max-h-[77vh] object-contain rounded-2xl shadow-2xl shadow-black/60 border border-slate-700/60 ring-1 ring-white/10"
-            autoplay muted playsinline
+            autoplay playsinline
           ></video>
         </div>
       </div>
@@ -834,6 +873,7 @@ function renderSlide(slide, isPinnedMode) {
       stage.innerHTML = `
         <div class="relative w-full h-full flex items-center justify-center overflow-hidden bg-black">
           <iframe 
+            id="tv-stage-yt-iframe"
             src="${media.embedUrl}" 
             class="w-full h-full border-0 pointer-events-auto"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
@@ -841,6 +881,21 @@ function renderSlide(slide, isPinnedMode) {
           ></iframe>
         </div>
       `;
+
+      // Kirim perintah unMute ke slide video YouTube
+      if (bgmUserInteracted) {
+        [600, 1500].forEach((delay) => {
+          setTimeout(() => {
+            const stageIframe = document.getElementById('tv-stage-yt-iframe');
+            if (stageIframe && stageIframe.contentWindow) {
+              stageIframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+              stageIframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+            }
+          }, delay);
+        });
+      } else {
+        showBgmUnmutePrompt();
+      }
       if (!isPinnedMode) {
         startCountdown(slide.duration || 30, () => {
           currentSlideIndex = (currentSlideIndex + 1) % allSlides.length;
@@ -914,7 +969,7 @@ function renderSlide(slide, isPinnedMode) {
               id="tv-link-video"
               src="${safeVideoUrl}" 
               class="max-w-[94vw] max-h-[77vh] object-contain rounded-2xl shadow-2xl shadow-black/60 border border-slate-700/60 ring-1 ring-white/10"
-              autoplay muted playsinline
+              autoplay playsinline
             ></video>
           </div>
         </div>
