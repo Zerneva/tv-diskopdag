@@ -122,6 +122,19 @@ async function fetchSettings() {
         .single();
 
       if (!error && data) {
+        // Jika kolom BGM belum ada di Supabase, merge dari cache/lokal
+        if (data.bgm_enabled === undefined || data.bgm_enabled === null) {
+          try {
+            const local = JSON.parse(localStorage.getItem('TV_SIGNAGE_LOCAL_SETTINGS') || '{}');
+            if (local.bgm_enabled !== undefined) {
+              data.bgm_enabled = local.bgm_enabled;
+              data.bgm_type = local.bgm_type;
+              data.bgm_url = local.bgm_url;
+              data.bgm_title = local.bgm_title;
+              data.bgm_volume = local.bgm_volume;
+            }
+          } catch (e) {}
+        }
         applySettings(data);
         localStorage.setItem('cached_tv_settings', JSON.stringify(data));
         return;

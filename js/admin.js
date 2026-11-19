@@ -181,6 +181,12 @@ const cfgSupabaseUrl = document.getElementById('cfg-supabase-url');
 const cfgSupabaseKey = document.getElementById('cfg-supabase-key');
 const btnResetDemo = document.getElementById('btn-reset-demo');
 
+// Modal Migrasi SQL BGM
+const modalBgmSql = document.getElementById('modal-bgm-sql');
+const btnCloseBgmSqlModal = document.getElementById('btn-close-bgm-sql-modal');
+const btnDismissBgmSql = document.getElementById('btn-dismiss-bgm-sql');
+const btnCopyBgmSql = document.getElementById('btn-copy-bgm-sql');
+
 // Modal Helper (Mencegah bug modal tembus klik di PC)
 function openModal(el) {
   if (!el) return;
@@ -194,8 +200,12 @@ function closeModal(el) {
   el.classList.add('hidden');
 }
 
+function openBgmSqlModal() {
+  if (modalBgmSql) openModal(modalBgmSql);
+}
+
 // Pastikan semua modal tertutup rapat saat inisialisasi awal
-[modalPreview, modalSupabase, modalEditSlide].forEach(closeModal);
+[modalPreview, modalSupabase, modalEditSlide, modalBgmSql].forEach(closeModal);
 
 // State User
 let currentUser = null;
@@ -1519,7 +1529,22 @@ async function loadSettings() {
         .select('*')
         .eq('id', 'global')
         .single();
-      if (!error && data) settings = data;
+      if (!error && data) {
+        settings = data;
+        // Jika kolom BGM belum ada di Supabase, gabungkan dengan data lokal
+        if (settings.bgm_enabled === undefined || settings.bgm_enabled === null) {
+          try {
+            const local = JSON.parse(localStorage.getItem('TV_SIGNAGE_LOCAL_SETTINGS') || '{}');
+            if (local.bgm_enabled !== undefined) {
+              settings.bgm_enabled = local.bgm_enabled;
+              settings.bgm_type = local.bgm_type;
+              settings.bgm_url = local.bgm_url;
+              settings.bgm_title = local.bgm_title;
+              settings.bgm_volume = local.bgm_volume;
+            }
+          } catch (e) {}
+        }
+      }
     } catch (e) {}
   }
 
@@ -1705,7 +1730,22 @@ if (formBgm) {
         const { error } = await supabaseClient
           .from('settings')
           .upsert(settingsUpdate);
-        if (error) throw error;
+        if (error) {
+          // Jika kolom bgm_enabled belum dibuat di database Supabase
+          if (error.message && (error.message.includes('bgm_enabled') || error.code === 'PGRST204' || error.message.includes('schema cache'))) {
+            console.warn('Kolom BGM belum ada di Supabase database. Menyimpan ke cache lokal perangkat:', error);
+            let currentSettings = JSON.parse(localStorage.getItem('TV_SIGNAGE_LOCAL_SETTINGS') || '{}');
+            currentSettings = { ...currentSettings, ...settingsUpdate };
+            localStorage.setItem('TV_SIGNAGE_LOCAL_SETTINGS', JSON.stringify(currentSettings));
+            localStorage.setItem('cached_tv_settings', JSON.stringify(currentSettings));
+            existingBgmUrl = bgm_url;
+            showToast('Musik berhasil aktif di layar TV! (Database Supabase perlu 1x migrasi SQL)', 'warning');
+            notifyTvUpdate('settings');
+            openBgmSqlModal();
+            return;
+          }
+          throw error;
+        }
       } else {
         let currentSettings = JSON.parse(localStorage.getItem('TV_SIGNAGE_LOCAL_SETTINGS') || '{}');
         currentSettings = { ...currentSettings, ...settingsUpdate };
@@ -1973,6 +2013,37 @@ btnResetDemo.addEventListener('click', () => {
     resetToDemoMode();
   }
 });
+
+// Event Handler Modal Migrasi SQL BGM
+if (btnCloseBgmSqlModal) {
+  btnCloseBgmSqlModal.addEventListener('click', () => closeModal(modalBgmSql));
+}
+if (btnDismissBgmSql) {
+  btnDismissBgmSql.addEventListener('click', () => closeModal(modalBgmSql));
+}
+if (modalBgmSql) {
+  modalBgmSql.addEventListener('click', (e) => {
+    if (e.target === modalBgmSql) closeModal(modalBgmSql);
+  });
+}
+if (btnCopyBgmSql) {
+  btnCopyBgmSql.addEventListener('click', () => {
+    const code = `ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_enabled BOOLEAN DEFAULT false;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_type TEXT DEFAULT 'file';
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_url TEXT DEFAULT '';
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_title TEXT DEFAULT '';
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_volume INTEGER DEFAULT 50;`;
+    navigator.clipboard.writeText(code).then(() => {
+      showToast('Kode SQL berhasil disalin ke clipboard!', 'success');
+      btnCopyBgmSql.innerHTML = '<span>✅ Tersalin!</span>';
+      setTimeout(() => {
+        btnCopyBgmSql.innerHTML = '<span>📋 Salin SQL</span>';
+      }, 2500);
+    }).catch(() => {
+      showToast('Gagal menyalin, silakan blok dan salin manual kode SQL.', 'warning');
+    });
+  });
+}
 
 // ------------------------------------------------------------
 // 9. MODAL EDIT SLIDE & FORM SUBMIT
