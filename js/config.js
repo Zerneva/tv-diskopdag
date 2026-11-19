@@ -115,7 +115,12 @@ const DEMO_INITIAL_SETTINGS = {
   id: 'global',
   office_name: 'KANTOR PUSAT',
   running_text: 'Selamat datang di Kantor Kami • Harap melakukan registrasi buku tamu di meja resepsionis • Jaga kenyamanan bersama • Wi-Fi Tamu: Office-Guest (Password: SelamatDatang2026)',
-  ticker_speed: 25
+  ticker_speed: 25,
+  bgm_enabled: false,
+  bgm_type: 'file',
+  bgm_url: '',
+  bgm_title: '',
+  bgm_volume: 50
 };
 
 // Inisialisasi mock storage jika belum ada

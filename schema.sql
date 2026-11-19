@@ -36,6 +36,13 @@ INSERT INTO public.settings (id, office_name, running_text, ticker_speed)
 VALUES ('global', 'KANTOR UTAMA', 'Selamat datang di Kantor Kami. Harap melapor ke meja resepsionis untuk registrasi tamu dan pengambilan kartu akses.', 25)
 ON CONFLICT (id) DO NOTHING;
 
+-- Tambahkan kolom Musik Latar (BGM) jika belum ada
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_enabled BOOLEAN DEFAULT false;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_type TEXT DEFAULT 'file'; -- 'file' or 'youtube' or 'link'
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_url TEXT DEFAULT '';
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_title TEXT DEFAULT '';
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS bgm_volume INTEGER DEFAULT 50;
+
 -- 3. Trigger otomatis: Jika 1 slide di-Pin Live, slide lain otomatis Unpin
 CREATE OR REPLACE FUNCTION public.ensure_single_pin()
 RETURNS TRIGGER AS $$

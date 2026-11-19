@@ -61,6 +61,28 @@ const inputOfficeName = document.getElementById('input-office-name');
 const inputRunningText = document.getElementById('input-running-text');
 const btnSaveTicker = document.getElementById('btn-save-ticker');
 
+// Pengaturan Musik Latar Lobi (BGM)
+const bgmToggleSwitch = document.getElementById('bgm-toggle-switch');
+const formBgm = document.getElementById('form-bgm');
+const btnBgmSourceFile = document.getElementById('btn-bgm-source-file');
+const btnBgmSourceLink = document.getElementById('btn-bgm-source-link');
+const wrapperBgmFile = document.getElementById('wrapper-bgm-file');
+const inputBgmFile = document.getElementById('input-bgm-file');
+const bgmCurrentFileBadge = document.getElementById('bgm-current-file-badge');
+const bgmCurrentFileLabel = document.getElementById('bgm-current-file-label');
+const wrapperBgmLink = document.getElementById('wrapper-bgm-link');
+const inputBgmUrl = document.getElementById('input-bgm-url');
+const btnTestBgmLink = document.getElementById('btn-test-bgm-link');
+const inputBgmTitle = document.getElementById('input-bgm-title');
+const inputBgmVolume = document.getElementById('input-bgm-volume');
+const bgmVolumeVal = document.getElementById('bgm-volume-val');
+const bgmAdminPreviewBox = document.getElementById('bgm-admin-preview-box');
+const bgmAdminAudio = document.getElementById('bgm-admin-audio');
+const btnStopPreviewBgm = document.getElementById('btn-stop-preview-bgm');
+const btnSaveBgm = document.getElementById('btn-save-bgm');
+let currentBgmSourceType = 'file';
+let existingBgmUrl = '';
+
 // Banner Pinned Live
 const pinAlertBanner = document.getElementById('pin-alert-banner');
 const pinAlertText = document.getElementById('pin-alert-text');
@@ -1512,7 +1534,195 @@ async function loadSettings() {
     if (inputOfficeName) inputOfficeName.value = settings.office_name || 'KANTOR UTAMA';
     if (inputRunningText) inputRunningText.value = settings.running_text || '';
     if (previewTvTicker) previewTvTicker.textContent = settings.running_text || 'Selamat Datang di Kantor Kami...';
+
+    // Isi Pengaturan Musik Latar (BGM)
+    if (bgmToggleSwitch) bgmToggleSwitch.checked = !!settings.bgm_enabled;
+    if (inputBgmTitle) inputBgmTitle.value = settings.bgm_title || '';
+    if (inputBgmVolume) {
+      const vol = settings.bgm_volume !== undefined ? settings.bgm_volume : 50;
+      inputBgmVolume.value = vol;
+      if (bgmVolumeVal) bgmVolumeVal.textContent = vol + '%';
+    }
+    existingBgmUrl = settings.bgm_url || '';
+
+    if (settings.bgm_type === 'youtube' || settings.bgm_type === 'link') {
+      switchBgmSource('link');
+      if (inputBgmUrl) inputBgmUrl.value = settings.bgm_url || '';
+    } else {
+      switchBgmSource('file');
+      if (settings.bgm_url && bgmCurrentFileBadge && bgmCurrentFileLabel) {
+        bgmCurrentFileBadge.classList.remove('hidden');
+        bgmCurrentFileLabel.textContent = settings.bgm_title || 'File audio terpasang';
+      }
+    }
   }
+}
+
+// Toggle Sumber BGM (File vs Link)
+function switchBgmSource(type) {
+  currentBgmSourceType = type;
+  if (type === 'file') {
+    if (btnBgmSourceFile) {
+      btnBgmSourceFile.className = 'py-1.5 px-3 rounded-lg bg-white shadow-xs text-zinc-900 font-semibold transition text-center';
+    }
+    if (btnBgmSourceLink) {
+      btnBgmSourceLink.className = 'py-1.5 px-3 rounded-lg text-zinc-600 hover:text-zinc-900 font-medium transition text-center';
+    }
+    if (wrapperBgmFile) wrapperBgmFile.classList.remove('hidden');
+    if (wrapperBgmLink) wrapperBgmLink.classList.add('hidden');
+  } else {
+    if (btnBgmSourceFile) {
+      btnBgmSourceFile.className = 'py-1.5 px-3 rounded-lg text-zinc-600 hover:text-zinc-900 font-medium transition text-center';
+    }
+    if (btnBgmSourceLink) {
+      btnBgmSourceLink.className = 'py-1.5 px-3 rounded-lg bg-white shadow-xs text-zinc-900 font-semibold transition text-center';
+    }
+    if (wrapperBgmFile) wrapperBgmFile.classList.add('hidden');
+    if (wrapperBgmLink) wrapperBgmLink.classList.remove('hidden');
+  }
+}
+
+if (btnBgmSourceFile) btnBgmSourceFile.addEventListener('click', () => switchBgmSource('file'));
+if (btnBgmSourceLink) btnBgmSourceLink.addEventListener('click', () => switchBgmSource('link'));
+
+if (inputBgmVolume) {
+  inputBgmVolume.addEventListener('input', () => {
+    if (bgmVolumeVal) bgmVolumeVal.textContent = inputBgmVolume.value + '%';
+    if (bgmAdminAudio) bgmAdminAudio.volume = parseInt(inputBgmVolume.value, 10) / 100;
+  });
+}
+
+if (inputBgmFile) {
+  inputBgmFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const blobUrl = URL.createObjectURL(file);
+    if (bgmAdminAudio) {
+      bgmAdminAudio.src = blobUrl;
+      bgmAdminAudio.play().catch(() => {});
+    }
+    if (bgmAdminPreviewBox) bgmAdminPreviewBox.classList.remove('hidden');
+    if (inputBgmTitle && !inputBgmTitle.value.trim()) {
+      inputBgmTitle.value = file.name.replace(/\.[^/.]+$/, '');
+    }
+    if (bgmCurrentFileBadge && bgmCurrentFileLabel) {
+      bgmCurrentFileBadge.classList.remove('hidden');
+      bgmCurrentFileLabel.textContent = file.name;
+    }
+  });
+}
+
+if (btnStopPreviewBgm) {
+  btnStopPreviewBgm.addEventListener('click', () => {
+    if (bgmAdminAudio) bgmAdminAudio.pause();
+    if (bgmAdminPreviewBox) bgmAdminPreviewBox.classList.add('hidden');
+  });
+}
+
+if (btnTestBgmLink) {
+  btnTestBgmLink.addEventListener('click', () => {
+    const url = inputBgmUrl ? inputBgmUrl.value.trim() : '';
+    if (!url) {
+      showToast('Masukkan link audio atau YouTube terlebih dahulu', 'warning');
+      return;
+    }
+
+    const media = (typeof parseMediaUrl === 'function') ? parseMediaUrl(url) : null;
+    if (media && media.type === 'youtube') {
+      showToast('Link YouTube terdeteksi! Musik akan diputar secara otomatis di TV lobi.', 'info');
+      if (inputBgmTitle && !inputBgmTitle.value.trim()) {
+        inputBgmTitle.value = 'BGM YouTube';
+      }
+    } else {
+      if (bgmAdminAudio) {
+        bgmAdminAudio.src = url;
+        bgmAdminAudio.play().catch(() => {});
+      }
+      if (bgmAdminPreviewBox) bgmAdminPreviewBox.classList.remove('hidden');
+      showToast('Mencoba memutar audio...', 'info');
+    }
+  });
+}
+
+if (formBgm) {
+  formBgm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const bgm_enabled = bgmToggleSwitch ? bgmToggleSwitch.checked : false;
+    const bgm_type = currentBgmSourceType === 'link'
+      ? (inputBgmUrl && inputBgmUrl.value.includes('youtu') ? 'youtube' : 'link')
+      : 'file';
+    const bgm_title = inputBgmTitle ? inputBgmTitle.value.trim() : '';
+    const bgm_volume = inputBgmVolume ? parseInt(inputBgmVolume.value, 10) : 50;
+    let bgm_url = existingBgmUrl;
+
+    btnSaveBgm.disabled = true;
+    btnSaveBgm.innerHTML = `<span>Menyimpan Musik...</span>`;
+
+    try {
+      if (currentBgmSourceType === 'file') {
+        const file = inputBgmFile ? inputBgmFile.files[0] : null;
+        if (file) {
+          if (isSupabaseConfigured() && supabaseClient && !isDemoSession) {
+            const ext = file.name.split('.').pop();
+            const fileName = `bgm-${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
+            const { error: uploadErr } = await supabaseClient.storage
+              .from('tv-media')
+              .upload(fileName, file, { cacheControl: '3600', upsert: false });
+            if (uploadErr) throw uploadErr;
+            const { data: publicUrlData } = supabaseClient.storage
+              .from('tv-media')
+              .getPublicUrl(fileName);
+            bgm_url = publicUrlData.publicUrl;
+          } else {
+            bgm_url = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (ev) => resolve(ev.target.result);
+              reader.readAsDataURL(file);
+            });
+          }
+        } else if (bgm_enabled && !bgm_url) {
+          throw new Error('Silakan pilih file audio MP3 terlebih dahulu');
+        }
+      } else {
+        const url = inputBgmUrl ? inputBgmUrl.value.trim() : '';
+        if (bgm_enabled && !url) {
+          throw new Error('Masukkan tautan URL audio atau YouTube');
+        }
+        bgm_url = url;
+      }
+
+      const settingsUpdate = {
+        id: 'global',
+        bgm_enabled,
+        bgm_type,
+        bgm_url,
+        bgm_title: bgm_title || (bgm_type === 'youtube' ? 'Musik YouTube' : 'Musik Latar Lobi'),
+        bgm_volume,
+        updated_at: new Date().toISOString()
+      };
+
+      if (isSupabaseConfigured() && supabaseClient && !isDemoSession) {
+        const { error } = await supabaseClient
+          .from('settings')
+          .upsert(settingsUpdate);
+        if (error) throw error;
+      } else {
+        let currentSettings = JSON.parse(localStorage.getItem('TV_SIGNAGE_LOCAL_SETTINGS') || '{}');
+        currentSettings = { ...currentSettings, ...settingsUpdate };
+        localStorage.setItem('TV_SIGNAGE_LOCAL_SETTINGS', JSON.stringify(currentSettings));
+        localStorage.setItem('cached_tv_settings', JSON.stringify(currentSettings));
+      }
+
+      existingBgmUrl = bgm_url;
+      showToast(bgm_enabled ? 'Musik latar berhasil diaktifkan di layar TV!' : 'Pengaturan musik berhasil disimpan', 'success');
+      notifyTvUpdate('settings');
+    } catch (err) {
+      showToast('Gagal menyimpan musik: ' + err.message, 'error');
+    } finally {
+      btnSaveBgm.disabled = false;
+      btnSaveBgm.innerHTML = `<span>Simpan Pengaturan Musik</span>`;
+    }
+  });
 }
 
 tickerForm.addEventListener('submit', async (e) => {

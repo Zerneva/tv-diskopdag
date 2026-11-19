@@ -264,6 +264,15 @@
 
       <!-- Kanan: Meta Halaman, Status Koneksi & Jam Digital -->
       <div class="flex items-center gap-6 shrink-0">
+        <!-- Indikator Musik Latar BGM (muncul jika BGM aktif) -->
+        <button
+          id="btn-bgm-indicator"
+          class="hidden items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[11px] font-semibold tracking-wide hover:bg-purple-500/25 transition"
+          title="Klik untuk mute/unmute musik latar"
+        >
+          <span class="text-sm leading-none">🎵</span>
+          <span id="bgm-indicator-label">Musik Lobi</span>
+        </button>
         <!-- Info Halaman Slide -->
         <div
           id="slide-meta"
@@ -433,8 +442,27 @@
       </div>
     </div>
 
+    <!-- ================= ELEMEN MUSIK LATAR (BGM) ================= -->
+    <!-- Audio HTML5 untuk file MP3/WAV/link langsung -->
+    <audio id="tv-bgm-audio" loop preload="auto" class="hidden" style="display:none"></audio>
+
+    <!-- YouTube invisible player untuk BGM via YouTube -->
+    <div id="tv-bgm-yt-wrap" class="hidden pointer-events-none" style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;">
+      <div id="tv-bgm-yt-player"></div>
+    </div>
+
+    <!-- Prompt Unmute: Muncul saat browser blokir autoplay -->
+    <div
+      id="bgm-unmute-prompt"
+      class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-obsidian-900/95 backdrop-blur-md border border-purple-500/40 text-slate-200 text-sm px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 cursor-pointer select-none"
+      style="display:none"
+    >
+      <span class="text-xl">🔊</span>
+      <span>Klik di mana saja untuk mengaktifkan musik latar lobi</span>
+    </div>
+
     <!-- Scripts -->
-    <script src="js/config.js?v=20261119_v1"></script>
-    <script src="js/tv.js?v=20261119_v1"></script>
+    <script src="js/config.js?v=20261119_v3"></script>
+    <script src="js/tv.js?v=20261119_v3"></script>
   </body>
 </html>
